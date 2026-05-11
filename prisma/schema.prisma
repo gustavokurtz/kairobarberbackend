@@ -1,0 +1,14 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// TODO(Task 14): Adicionar modelos User, Tenant, Subscription, RefreshToken, OneTimeToken
+// Placeholder para permitir geração do Prisma Client (Prisma 5 exige ao menos 1 modelo)
+model Placeholder {
+  id Int @id
+}
