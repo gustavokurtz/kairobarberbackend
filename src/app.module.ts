@@ -7,6 +7,7 @@ import { PrismaModule } from './infra/prisma/prisma.module';
 import { buildLoggerOptions } from './infra/logger/logger.config';
 import { HealthModule } from './modules/health/health.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     ]),
     PrismaModule,
     NotificationsModule,
+    AuthModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -1,0 +1,16 @@
+export const RESERVED_SLUGS = new Set<string>([
+  'admin',
+  'api',
+  'app',
+  'auth',
+  'billing',
+  'help',
+  'login',
+  'public',
+  'register',
+  'saas',
+  'signup',
+  'static',
+  'support',
+  'www',
+]);
