@@ -51,7 +51,7 @@ model Tenant {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  owner        User          @relation("TenantOwner", fields: [ownerUserId], references: [id])
+  owner        User          @relation("TenantOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
   subscription Subscription?
 
   @@index([deletedAt])
@@ -70,7 +70,7 @@ model Subscription {
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([status, nextSyncAt])
 }
@@ -84,7 +84,7 @@ model RefreshToken {
   revokedAt    DateTime?
   replacedById String?
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -98,7 +98,7 @@ model OneTimeToken {
   usedAt    DateTime?
   createdAt DateTime            @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, purpose])
 }
