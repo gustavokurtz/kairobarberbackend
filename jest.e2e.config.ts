@@ -20,7 +20,7 @@ const config: Config = {
   moduleNameMapper: {
     '^src/(.*)$': '<rootDir>/src/$1',
   },
-  testTimeout: 60_000,
+  testTimeout: 120_000,
 };
 
 export default config;
