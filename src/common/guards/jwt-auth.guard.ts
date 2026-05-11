@@ -4,6 +4,7 @@ import { TokensService } from 'src/modules/auth/tokens.service';
 import { UserRole } from '@prisma/client';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { AuthenticatedRequest } from '../types/request-context';
+import { tenantAls } from 'src/infra/prisma/prisma.service';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -30,6 +31,8 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const payload = await this.tokens.verifyAccess(token);
       req.user = { id: payload.sub, role: payload.role as UserRole, tenantId: payload.tenantId };
+      const store = tenantAls.getStore();
+      if (store) store.tenantId = payload.tenantId;
       return true;
     } catch {
       throw new UnauthorizedException('Invalid or expired access token');
