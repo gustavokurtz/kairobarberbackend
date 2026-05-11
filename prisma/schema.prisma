@@ -7,8 +7,98 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// TODO(Task 14): Adicionar modelos User, Tenant, Subscription, RefreshToken, OneTimeToken
-// Placeholder para permitir geração do Prisma Client (Prisma 5 exige ao menos 1 modelo)
-model Placeholder {
-  id Int @id
+enum UserRole {
+  saas_owner
+  tenant_owner
+  barber_member
+  customer
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  cancelled
+}
+
+enum OneTimeTokenPurpose {
+  email_verification
+  password_reset
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String
+  name            String
+  role            UserRole
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  ownedTenant   Tenant?        @relation("TenantOwner")
+  refreshTokens RefreshToken[]
+  oneTimeTokens OneTimeToken[]
+}
+
+model Tenant {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  timezone    String    @default("America/Sao_Paulo")
+  ownerUserId String    @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  owner        User          @relation("TenantOwner", fields: [ownerUserId], references: [id])
+  subscription Subscription?
+
+  @@index([deletedAt])
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  tenantId             String             @unique
+  status               SubscriptionStatus
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  mpPreapprovalId      String?            @unique
+  lastSyncedAt         DateTime?
+  nextSyncAt           DateTime?
+  aiQuotaUsedThisMonth Int                @default(0)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([status, nextSyncAt])
+}
+
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+  replacedById String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model OneTimeToken {
+  id        String              @id @default(cuid())
+  userId    String
+  purpose   OneTimeTokenPurpose
+  tokenHash String              @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, purpose])
 }
