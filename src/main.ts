@@ -4,6 +4,9 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { initSentry } from './infra/sentry/sentry.init';
+
+initSentry(process.env.SENTRY_DSN, process.env.NODE_ENV);
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });

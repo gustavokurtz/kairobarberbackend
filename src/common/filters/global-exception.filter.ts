@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
+import * as Sentry from '@sentry/node';
 import { DomainException } from '../exceptions/domain.exception';
 import { ErrorCodes } from '../exceptions/error-codes';
 
@@ -56,6 +57,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       `Unhandled exception at ${req.method ?? 'UNKNOWN'} ${req.url ?? '/'}`,
       exception instanceof Error ? exception.stack : String(exception),
     );
+    Sentry.captureException(exception);
     const body: ErrorEnvelope = {
       code: ErrorCodes.INTERNAL_ERROR,
       message: 'Erro interno. Tente novamente em instantes.',
