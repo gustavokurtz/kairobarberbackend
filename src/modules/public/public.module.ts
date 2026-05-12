@@ -6,6 +6,7 @@ import { CustomersModule } from 'src/modules/customers/customers.module';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
 import { SchedulingModule } from 'src/modules/scheduling/scheduling.module';
 import { TenantsModule } from 'src/modules/tenants/tenants.module';
+import { PublicAvailabilityController } from './public-availability.controller';
 import { PublicCatalogController } from './public-catalog.controller';
 
 @Module({
@@ -17,7 +18,7 @@ import { PublicCatalogController } from './public-catalog.controller';
     SchedulingModule,
     NotificationsModule,
   ],
-  controllers: [PublicCatalogController],
+  controllers: [PublicCatalogController, PublicAvailabilityController],
 })
 export class PublicModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
