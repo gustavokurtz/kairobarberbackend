@@ -6,6 +6,7 @@ import { CustomersModule } from 'src/modules/customers/customers.module';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
 import { SchedulingModule } from 'src/modules/scheduling/scheduling.module';
 import { TenantsModule } from 'src/modules/tenants/tenants.module';
+import { PublicAppointmentsController } from './public-appointments.controller';
 import { PublicAvailabilityController } from './public-availability.controller';
 import { PublicCatalogController } from './public-catalog.controller';
 
@@ -18,7 +19,11 @@ import { PublicCatalogController } from './public-catalog.controller';
     SchedulingModule,
     NotificationsModule,
   ],
-  controllers: [PublicCatalogController, PublicAvailabilityController],
+  controllers: [
+    PublicCatalogController,
+    PublicAvailabilityController,
+    PublicAppointmentsController,
+  ],
 })
 export class PublicModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
