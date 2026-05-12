@@ -10,6 +10,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { StorageModule } from './modules/storage/storage.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
+import { BarbersModule } from './modules/barbers/barbers.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { TenantsModule } from './modules/tenants/tenants.module';
     StorageModule,
     AuthModule,
     TenantsModule,
+    BarbersModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
