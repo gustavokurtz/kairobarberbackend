@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { visagismAnalysisSchema } from '../ai-visagism.schemas';
 
 const generateObjectMock = jest.fn();
 const generateImageMock = jest.fn();
@@ -106,13 +107,15 @@ describe('AiSdkVisagismProvider', () => {
     });
 
     const args = generateObjectMock.mock.calls[0][0] as {
+      model: unknown;
       messages: { role: string; content: { type: string }[] }[];
       schema: unknown;
       system: string;
     };
     expect(args.messages[0].content[0].type).toBe('text');
     expect(args.messages[0].content[1].type).toBe('file');
-    expect(args.schema).toBeDefined();
+    expect(args.schema).toBe(visagismAnalysisSchema);
+    expect(args.model).toMatchObject({ model: 'meta-llama/llama-4-scout-17b-16e-instruct' });
     expect(args.system).toContain('visagismo');
   });
 
@@ -123,9 +126,10 @@ describe('AiSdkVisagismProvider', () => {
       image: { base64: Buffer.from('fake-png').toString('base64') },
     });
 
+    const photoBuffer = Buffer.from('orig');
     const provider = new AiSdkVisagismProvider(makeCfg());
     const out = await provider.generateImage({
-      photoBuffer: Buffer.from('orig'),
+      photoBuffer,
       mimeType: 'image/jpeg',
       suggestion: {
         id: 'mid-fade-curtain',
@@ -148,10 +152,13 @@ describe('AiSdkVisagismProvider', () => {
 
     // Confere que o prompt foi montado com text + images (forma de objeto do v6).
     const args = generateImageMock.mock.calls[0][0] as {
-      prompt: { text: string; images: unknown[] };
+      model: unknown;
+      prompt: { text: string; images: Buffer[] };
     };
+    expect(args.model).toMatchObject({ m: 'gpt-image-1' });
     expect(args.prompt.text).toContain('Mid fade');
     expect(args.prompt.images).toHaveLength(1);
+    expect(args.prompt.images[0]).toBe(photoBuffer);
   });
 
   it('analyze com usage ausente conta como 0 tokens → custo 0', async () => {
@@ -192,5 +199,37 @@ describe('AiSdkVisagismProvider', () => {
       inputTokens: 0,
       outputTokens: 0,
     });
+  });
+
+  it('analyze propaga erro do generateObject sem swallow', async () => {
+    generateObjectMock.mockRejectedValueOnce(new Error('rate-limit'));
+    const provider = new AiSdkVisagismProvider(makeCfg());
+    await expect(
+      provider.analyze({ photoBuffer: Buffer.from('x'), mimeType: 'image/jpeg' }),
+    ).rejects.toThrow('rate-limit');
+  });
+
+  it('generateImage propaga erro do generateImage sem swallow', async () => {
+    generateImageMock.mockRejectedValueOnce(new Error('quota-exceeded'));
+    const provider = new AiSdkVisagismProvider(makeCfg());
+    await expect(
+      provider.generateImage({
+        photoBuffer: Buffer.from('x'),
+        mimeType: 'image/jpeg',
+        suggestion: {
+          id: 'any',
+          name: 'Any',
+          rationale: 'X',
+          length: 'short',
+          style: 'moderno',
+          suitableFor: [],
+        },
+      }),
+    ).rejects.toThrow('quota-exceeded');
+  });
+
+  it('healthCheck retorna {ok:true} quando clients estão inicializados', async () => {
+    const provider = new AiSdkVisagismProvider(makeCfg());
+    await expect(provider.healthCheck()).resolves.toEqual({ ok: true });
   });
 });
