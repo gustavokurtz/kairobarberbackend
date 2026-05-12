@@ -111,11 +111,24 @@ export class AppointmentsService {
 
     type RawTx = {
       $queryRawUnsafe: <T>(...args: unknown[]) => Promise<T>;
-      appointment: { create: (args: { data: Prisma.AppointmentUncheckedCreateInput }) => Promise<unknown> };
+      appointment: {
+        create: (args: { data: Prisma.AppointmentUncheckedCreateInput }) => Promise<unknown>;
+      };
     };
 
     const appointment = await this.prisma.$transaction(async (tx) => {
       const rawTx = tx as unknown as RawTx;
+
+      // Serialize all bookings for this barber via an advisory lock.
+      // SELECT FOR UPDATE only locks existing rows; two concurrent transactions
+      // that both find zero overlapping appointments would both proceed to INSERT,
+      // producing a silent double-booking. The advisory lock forces them to
+      // serialize: the second waits, then sees the first booking in its SELECT.
+      await rawTx.$queryRawUnsafe<unknown[]>(
+        `SELECT pg_advisory_xact_lock(hashtext('booking:' || $1::text || ':' || $2::text)::bigint)`,
+        tenantId,
+        input.barberId,
+      );
 
       // SELECT FOR UPDATE em qualquer overlap ativo do barbeiro:
       const overlap = await rawTx.$queryRawUnsafe<Array<{ id: string }>>(
