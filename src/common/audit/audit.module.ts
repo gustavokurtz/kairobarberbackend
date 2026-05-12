@@ -7,6 +7,6 @@ import { AuditService } from './audit.service';
 @Module({
   imports: [PrismaModule],
   providers: [AuditService, AuditRepository, Logger],
-  exports: [AuditService],
+  exports: [AuditService, AuditRepository],
 })
 export class AuditModule {}
