@@ -7,10 +7,13 @@ export type TenantContext = { tenantId?: string };
 export const tenantAls = new AsyncLocalStorage<TenantContext>();
 
 const TENANT_SCOPED_MODELS = new Set<string>([
-  // In Fase 1, only Subscription belongs to a tenant.
-  // Tenant itself is the tenant (no self-filtering).
-  // Future phases will add: Barber, Service, Photo, Customer, Appointment, AiConsultation, etc.
   'Subscription',
+  'Barber',
+  'TimeOff',
+  'Service',
+  'ServiceBarber',
+  'Photo',
+  'BarberInvitation',
 ]);
 
 @Injectable()
