@@ -20,6 +20,19 @@ export type ComputeSlotsInput = {
   to: Date;
 };
 
+export type AvailabilityByServiceInput = {
+  tenantTimezone: string;
+  businessHours: BusinessHours;
+  durationMin: number;
+  barberIds: string[];
+  timeOffsByBarber: Record<string, TimeOffWindow[]>;
+  appointmentsByBarber: Record<string, AppointmentWindow[]>;
+  from: Date;
+  to: Date;
+};
+
+export type AvailabilityGroup = { barberId: string; slots: Slot[] };
+
 export const SLOT_STEP_MIN = 15;
 export const MAX_RANGE_DAYS = 31;
 
@@ -97,5 +110,21 @@ export class AvailabilityService {
     }
 
     return out;
+  }
+
+  getAvailabilityByService(i: AvailabilityByServiceInput): AvailabilityGroup[] {
+    return i.barberIds.map((barberId) => ({
+      barberId,
+      slots: this.computeSlots({
+        tenantTimezone: i.tenantTimezone,
+        businessHours: i.businessHours,
+        durationMin: i.durationMin,
+        barberId,
+        timeOffs: i.timeOffsByBarber[barberId] ?? [],
+        appointments: i.appointmentsByBarber[barberId] ?? [],
+        from: i.from,
+        to: i.to,
+      }),
+    }));
   }
 }

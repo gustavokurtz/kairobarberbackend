@@ -173,3 +173,39 @@ describe('AvailabilityService', () => {
     expect(isos).toContain('2025-05-12T17:00:00.000Z'); // 14:00 SP
   });
 });
+
+describe('AvailabilityService.getAvailabilityByService', () => {
+  function bhAllDays9to18() {
+    return {
+      days: Array.from({ length: 7 }, () => ({
+        open: true,
+        intervals: [{ startMin: 9 * 60, endMin: 18 * 60 }],
+      })),
+    };
+  }
+
+  it('agrupa por barberId, chamando computeSlots por barbeiro', () => {
+    const svc = new AvailabilityService(() => new Date('2025-05-11T12:00:00Z'));
+    const spy = jest.spyOn(svc, 'computeSlots');
+    spy.mockImplementation((i) => [
+      { barberId: i.barberId, startsAt: i.from, endsAt: new Date(i.from.getTime() + 60000) },
+    ]);
+
+    const out = svc.getAvailabilityByService({
+      tenantTimezone: 'America/Sao_Paulo',
+      businessHours: bhAllDays9to18(),
+      durationMin: 30,
+      barberIds: ['b1', 'b2'],
+      timeOffsByBarber: { b1: [], b2: [] },
+      appointmentsByBarber: { b1: [], b2: [] },
+      from: new Date('2025-05-12T00:00:00Z'),
+      to: new Date('2025-05-13T00:00:00Z'),
+    });
+
+    expect(out).toHaveLength(2);
+    expect(out[0].barberId).toBe('b1');
+    expect(out[1].barberId).toBe('b2');
+    expect(out[0].slots).toHaveLength(1);
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+});
