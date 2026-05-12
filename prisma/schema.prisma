@@ -54,6 +54,7 @@ model User {
   oneTimeTokens   OneTimeToken[]
   barberProfile   Barber?        @relation("BarberUser")
   customerProfile Customer?      @relation("CustomerUser")
+  auditLogs       AuditLog[]
 }
 
 model Tenant {
@@ -70,6 +71,7 @@ model Tenant {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
+  suspendedAt   DateTime?
 
   owner             User               @relation("TenantOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
   subscription      Subscription?
@@ -81,6 +83,7 @@ model Tenant {
   serviceBarbers    ServiceBarber[]
   customers         Customer[]
   appointments      Appointment[]
+  auditLogs         AuditLog[]
 
   @@index([deletedAt])
 }
@@ -283,4 +286,24 @@ model Appointment {
   @@index([tenantId, barberId, startsAt])
   @@index([tenantId, customerId, startsAt(sort: Desc)])
   @@index([tenantId, status, startsAt])
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  tenantId      String?
+  actorUserId   String?
+  action        String
+  targetType    String?
+  targetId      String?
+  diff          Json?
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  actor  User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@index([actorUserId, createdAt(sort: Desc)])
 }
