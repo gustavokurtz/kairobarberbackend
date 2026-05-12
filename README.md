@@ -67,6 +67,18 @@ Serviços, galeria de fotos (R2 + console), horários de funcionamento, exceçõ
 - Gating: tenant `cancelled` ganha 402 em `/admin/*` (exceto billing) e 404 na storefront
 - Sem webhook MP — sync on-demand via `/admin/billing/sync` resolve 95% dos casos pós-checkout
 
+### Fase 5 — Dashboard do dono do SaaS ✅
+- `/saas/*` gated por `role=saas_owner` (RolesGuard):
+  - `GET /saas/dashboard` — MRR, ARR, tenants ativos, churn 30d, conversão trial→paid 30d
+  - `GET /saas/tenants` + `GET /saas/tenants/:id` — listagem com filtros (status, suspended, search) e detalhe com counters
+  - `POST /saas/tenants/:id/(suspend|unsuspend)` — `Tenant.suspendedAt` independente de billing
+  - `GET /saas/ai-usage` — snapshot do mês corrente (`Subscription.aiQuotaUsedThisMonth`); breakdown rico chega na Fase 6
+  - `GET /saas/users` — pesquisa por role/email/nome
+  - `GET /saas/audit-log` — filtros por tenant/actor/action/janela de tempo
+- `AuditLog` persistente (append-only): transições de subscription da Fase 4 + ações administrativas
+- Suspensão administrativa: storefront → 404 (não vaza), `/admin/*` → 402 `TENANT_SUSPENDED` (bypass via `@AllowInactiveSubscription()`)
+- Bootstrap do `saas_owner`: `npm run prisma:seed` (idempotente, bloqueado em prod sem `ALLOW_PROD_SEED=true`)
+
 ## Deploy
 
 Push em `main` → CI verde → deploy automático no Railway. Healthcheck em `/health/ready`.
