@@ -8,9 +8,13 @@ import { AppointmentRepository } from './repositories/appointment.repository';
 
 function makeTx(overlapRows: Array<{ id: string }> = []) {
   return {
+    $executeRawUnsafe: jest.fn().mockResolvedValue(0),
     $queryRawUnsafe: jest.fn().mockResolvedValue(overlapRows),
     appointment: {
       create: jest.fn(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ id: 'apt1', ...data }),
+      ),
+      update: jest.fn(({ data }: { data: Record<string, unknown> }) =>
         Promise.resolve({ id: 'apt1', ...data }),
       ),
     },

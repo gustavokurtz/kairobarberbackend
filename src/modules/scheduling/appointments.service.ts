@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Optional } from '@nestjs/common';
 import { AppointmentSource, AppointmentStatus, Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
 import { DomainException } from 'src/common/exceptions/domain.exception';
@@ -26,7 +26,7 @@ export class AppointmentsService {
     private readonly repo: AppointmentRepository,
     private readonly services: ServicesService,
     private readonly barbers: BarbersService,
-    private readonly nowFn: () => Date = () => new Date(),
+    @Optional() private readonly nowFn: () => Date = () => new Date(),
   ) {}
 
   async getById(id: string) {
@@ -112,6 +112,7 @@ export class AppointmentsService {
     const newEndsAt = new Date(newStartsAt.getTime() + apt.durationMinSnapshot * 60 * 1000);
     return this.prisma.$transaction(async (tx) => {
       type RawTx = {
+        $executeRawUnsafe: (...args: unknown[]) => Promise<number>;
         $queryRawUnsafe: <T>(...args: unknown[]) => Promise<T>;
         appointment: {
           update: (args: {
@@ -122,7 +123,7 @@ export class AppointmentsService {
       };
       const rawTx = tx as unknown as RawTx;
       // advisory lock for the barber, same pattern as createInternal
-      await rawTx.$queryRawUnsafe<unknown[]>(
+      await rawTx.$executeRawUnsafe(
         `SELECT pg_advisory_xact_lock(hashtext('booking:' || $1::text || ':' || $2::text)::bigint)`,
         apt.tenantId,
         apt.barberId,
@@ -221,6 +222,7 @@ export class AppointmentsService {
     const cancellationTokenHash = createHash('sha256').update(cancellationPlainToken).digest('hex');
 
     type RawTx = {
+      $executeRawUnsafe: (...args: unknown[]) => Promise<number>;
       $queryRawUnsafe: <T>(...args: unknown[]) => Promise<T>;
       appointment: {
         create: (args: { data: Prisma.AppointmentUncheckedCreateInput }) => Promise<unknown>;
@@ -235,7 +237,7 @@ export class AppointmentsService {
       // that both find zero overlapping appointments would both proceed to INSERT,
       // producing a silent double-booking. The advisory lock forces them to
       // serialize: the second waits, then sees the first booking in its SELECT.
-      await rawTx.$queryRawUnsafe<unknown[]>(
+      await rawTx.$executeRawUnsafe(
         `SELECT pg_advisory_xact_lock(hashtext('booking:' || $1::text || ':' || $2::text)::bigint)`,
         tenantId,
         input.barberId,

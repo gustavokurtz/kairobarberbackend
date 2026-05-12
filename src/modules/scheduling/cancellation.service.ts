@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Optional } from '@nestjs/common';
 import { AppointmentStatus } from '@prisma/client';
 import { createHash } from 'crypto';
 import { DomainException } from 'src/common/exceptions/domain.exception';
@@ -12,7 +12,7 @@ const ACTIVE = new Set<AppointmentStatus>([AppointmentStatus.pending, Appointmen
 export class CancellationService {
   constructor(
     private readonly repo: AppointmentRepository,
-    private readonly nowFn: () => Date = () => new Date(),
+    @Optional() private readonly nowFn: () => Date = () => new Date(),
   ) {}
 
   async lookupByToken(plainToken: string) {
