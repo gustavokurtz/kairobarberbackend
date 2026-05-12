@@ -22,7 +22,7 @@ export class ServiceRepository {
   }
 
   create(data: Prisma.ServiceCreateInput | Prisma.ServiceUncheckedCreateInput) {
-    return this.prisma.scoped.service.create({ data: data as Prisma.ServiceCreateInput });
+    return this.prisma.scoped.service.create({ data: data });
   }
 
   update(id: string, data: Prisma.ServiceUpdateInput) {
@@ -33,6 +33,18 @@ export class ServiceRepository {
     return this.prisma.scoped.service.update({
       where: { id },
       data: { deletedAt: new Date(), active: false },
+    });
+  }
+
+  async replaceBarbers(serviceId: string, barberIds: string[], tenantId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.serviceBarber.deleteMany({ where: { serviceId, tenantId } });
+      if (barberIds.length) {
+        await tx.serviceBarber.createMany({
+          data: barberIds.map((barberId) => ({ tenantId, serviceId, barberId })),
+        });
+      }
+      return tx.serviceBarber.findMany({ where: { serviceId, tenantId } });
     });
   }
 }
