@@ -4,17 +4,39 @@ import { DomainException } from 'src/common/exceptions/domain.exception';
 import { ErrorCodes } from 'src/common/exceptions/error-codes';
 import { ALLOW_INACTIVE_SUBSCRIPTION_KEY } from 'src/modules/billing/billing.constants';
 import { SubscriptionRepository } from 'src/modules/billing/repositories/subscription.repository';
+import { TokensService } from 'src/modules/auth/tokens.service';
 
 @Injectable()
 export class SubscriptionActiveGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly subscriptions: SubscriptionRepository,
+    private readonly tokens: TokensService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    const req = ctx.switchToHttp().getRequest<{ user?: { tenantId?: string } }>();
-    const tenantId = req.user?.tenantId;
+    const req = ctx
+      .switchToHttp()
+      .getRequest<{
+        user?: { tenantId?: string };
+        headers: Record<string, string | undefined>;
+      }>();
+
+    // APP_GUARDs from different modules don't have a deterministic cross-module
+    // execution order, so JwtAuthGuard may not have populated req.user yet.
+    // Parse the bearer token directly when req.user is missing.
+    let tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      const header = req.headers['authorization'];
+      if (header?.startsWith('Bearer ')) {
+        try {
+          const payload = await this.tokens.verifyAccess(header.slice('Bearer '.length));
+          tenantId = payload.tenantId;
+        } catch {
+          return true;
+        }
+      }
+    }
     if (!tenantId) return true;
 
     const allowInactive = this.reflector.getAllAndOverride<boolean>(

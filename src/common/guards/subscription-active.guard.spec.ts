@@ -12,7 +12,7 @@ function mkContext(opts: {
     getHandler: () => ({}),
     getClass: () => ({}),
     switchToHttp: () => ({
-      getRequest: () => ({ user: opts.user, url: opts.url ?? '/admin/foo' }),
+      getRequest: () => ({ user: opts.user, url: opts.url ?? '/admin/foo', headers: {} }),
     }),
   } as never as ExecutionContext;
 }
@@ -20,11 +20,13 @@ function mkContext(opts: {
 describe('SubscriptionActiveGuard', () => {
   const reflector = new Reflector();
   let repo: { findByTenantId: jest.Mock };
+  let tokens: { verifyAccess: jest.Mock };
   let guard: SubscriptionActiveGuard;
 
   beforeEach(() => {
     repo = { findByTenantId: jest.fn() };
-    guard = new SubscriptionActiveGuard(reflector, repo as never);
+    tokens = { verifyAccess: jest.fn() };
+    guard = new SubscriptionActiveGuard(reflector, repo as never, tokens as never);
   });
 
   afterEach(() => {
