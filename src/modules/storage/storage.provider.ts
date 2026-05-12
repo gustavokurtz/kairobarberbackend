@@ -25,9 +25,37 @@ export interface StorageProvider {
 
   /** Best-effort delete; missing object is not an error. */
   delete(r2Key: string): Promise<void>;
+
+  /** Faz upload server-side de um buffer (não-presigned). */
+  uploadBuffer(input: UploadBufferInput): Promise<UploadBufferResult>;
+
+  /** Baixa o objeto completo como Buffer. Lança erro se ausente. */
+  download(r2Key: string): Promise<Buffer>;
+
+  /** Retorna URL GET pré-assinada (útil pra workers / debug). */
+  presignGet(r2Key: string, ttlSeconds: number): Promise<string>;
 }
 
+export type UploadBufferInput = {
+  tenantId: string;
+  buffer: Buffer;
+  contentType: string;
+  extension: string;
+  /** Path prefix dentro do bucket. Ex: `ai-visagism/input` */
+  prefix?: string;
+};
+
+export type UploadBufferResult = {
+  r2Key: string;
+};
+
 export const ALLOWED_PHOTO_CONTENT_TYPES = new Set<string>([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
+export const ALLOWED_AI_PHOTO_CONTENT_TYPES = new Set<string>([
   'image/jpeg',
   'image/png',
   'image/webp',

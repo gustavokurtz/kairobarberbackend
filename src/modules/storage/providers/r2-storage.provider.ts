@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { S3Client, DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { PresignedUpload, PresignUploadInput, StorageProvider } from '../storage.provider';
+import { PresignedUpload, PresignUploadInput, StorageProvider, UploadBufferInput, UploadBufferResult } from '../storage.provider';
 
 @Injectable()
 export class R2StorageProvider implements StorageProvider {
@@ -47,5 +47,39 @@ export class R2StorageProvider implements StorageProvider {
     } catch {
       // best-effort
     }
+  }
+
+  async uploadBuffer(input: UploadBufferInput): Promise<UploadBufferResult> {
+    const prefix = input.prefix ?? 'photos';
+    const r2Key = `tenants/${input.tenantId}/${prefix}/${randomUUID()}.${input.extension}`;
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: r2Key,
+        Body: input.buffer,
+        ContentType: input.contentType,
+        ContentLength: input.buffer.byteLength,
+      }),
+    );
+    return { r2Key };
+  }
+
+  async download(r2Key: string): Promise<Buffer> {
+    const out = await this.client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: r2Key }),
+    );
+    if (!out.Body) {
+      throw new Error(`R2 object missing body: ${r2Key}`);
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of out.Body as AsyncIterable<Uint8Array>) {
+      chunks.push(Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+
+  async presignGet(r2Key: string, ttlSeconds: number): Promise<string> {
+    const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: r2Key });
+    return getSignedUrl(this.client, cmd, { expiresIn: ttlSeconds });
   }
 }
