@@ -9,7 +9,7 @@ describe('PrismaService.scoped — Phase 3 models', () => {
   });
   afterAll(async () => prisma.$disconnect());
 
-  it('injeta tenantId em Customer.create', async () => {
+  it('injeta tenantId em Customer.create', () => {
     const tenantId = 'fake-tenant-id-for-typecheck';
     expect(() =>
       tenantAls.run({ tenantId }, () => {
