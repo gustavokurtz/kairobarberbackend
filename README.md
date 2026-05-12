@@ -79,6 +79,9 @@ Serviços, galeria de fotos (R2 + console), horários de funcionamento, exceçõ
 - Suspensão administrativa: storefront → 404 (não vaza), `/admin/*` → 402 `TENANT_SUSPENDED` (bypass via `@AllowInactiveSubscription()`)
 - Bootstrap do `saas_owner`: `npm run prisma:seed` (idempotente, bloqueado em prod sem `ALLOW_PROD_SEED=true`)
 
+### Fase 6 — IA Visagismo ✅
+Fase 6: módulo `ai-visagism` com `/public/{slug}/ai/visagism/consultations` (multipart upload), polling em `/public/ai/visagism/consultations/{id}` e geração opt-in via gpt-image-1. Análise estruturada via AI SDK + Groq + Llama 4 Scout 17B. Cota mensal 100/tenant (`Subscription.aiQuotaUsedThisMonth`). Retenção LGPD 7 dias com cron `ai-photo-cleanup`. Reset mensal de cota via cron. Custo por consulta rastreado. Provider abstraído (`VisagismProvider`) para troca futura.
+
 ## Deploy
 
 Push em `main` → CI verde → deploy automático no Railway. Healthcheck em `/health/ready`.
