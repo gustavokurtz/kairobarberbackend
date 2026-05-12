@@ -39,20 +39,32 @@ model User {
   ownedTenant   Tenant?        @relation("TenantOwner")
   refreshTokens RefreshToken[]
   oneTimeTokens OneTimeToken[]
+  barberProfile Barber?        @relation("BarberUser")
 }
 
 model Tenant {
-  id          String    @id @default(cuid())
-  slug        String    @unique
-  name        String
-  timezone    String    @default("America/Sao_Paulo")
-  ownerUserId String    @unique
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  name          String
+  bio           String?
+  address       String?
+  phone         String?
+  avatarUrl     String?
+  timezone      String    @default("America/Sao_Paulo")
+  businessHours Json?
+  ownerUserId   String    @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
-  owner        User          @relation("TenantOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
-  subscription Subscription?
+  owner             User               @relation("TenantOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  subscription      Subscription?
+  barbers           Barber[]
+  services          Service[]
+  photos            Photo[]
+  barberInvitations BarberInvitation[]
+  timeOffs          TimeOff[]
+  serviceBarbers    ServiceBarber[]
 
   @@index([deletedAt])
 }
@@ -101,4 +113,107 @@ model OneTimeToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, purpose])
+}
+
+model Barber {
+  id          String    @id @default(cuid())
+  tenantId    String
+  userId      String?   @unique
+  displayName String
+  bio         String?
+  avatarUrl   String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user           User?             @relation("BarberUser", fields: [userId], references: [id], onDelete: SetNull)
+  timeOffs       TimeOff[]
+  serviceBarbers ServiceBarber[]
+  photos         Photo[]
+  invitation     BarberInvitation?
+
+  @@index([tenantId, deletedAt])
+}
+
+model TimeOff {
+  id        String   @id @default(cuid())
+  tenantId  String
+  barberId  String
+  startsAt  DateTime
+  endsAt    DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, barberId, startsAt])
+}
+
+model Service {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  durationMin Int
+  priceCents  Int
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  serviceBarbers ServiceBarber[]
+  photos         Photo[]
+
+  @@index([tenantId, deletedAt])
+}
+
+model ServiceBarber {
+  tenantId  String
+  serviceId String
+  barberId  String
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  barber  Barber  @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, barberId])
+  @@index([tenantId])
+}
+
+model Photo {
+  id        String    @id @default(cuid())
+  tenantId  String
+  r2Key     String
+  caption   String?
+  serviceId String?
+  barberId  String?
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  barber  Barber?  @relation(fields: [barberId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, deletedAt])
+}
+
+model BarberInvitation {
+  id         String    @id @default(cuid())
+  tenantId   String
+  barberId   String    @unique
+  email      String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([email])
 }
