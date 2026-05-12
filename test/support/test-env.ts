@@ -2,6 +2,7 @@ export function setTestEnv() {
   process.env.NODE_ENV = 'test';
   process.env.PORT = '0';
   process.env.APP_URL = 'http://localhost';
+  process.env.APP_PUBLIC_URL = 'http://localhost:3000';
   process.env.JWT_ACCESS_SECRET = 'a'.repeat(40);
   process.env.JWT_REFRESH_SECRET = 'b'.repeat(40);
   process.env.JWT_ACCESS_TTL = '15m';

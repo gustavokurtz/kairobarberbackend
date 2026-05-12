@@ -4,6 +4,7 @@ export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').default('development'),
   PORT: Joi.number().default(3000),
   APP_URL: Joi.string().uri().required(),
+  APP_PUBLIC_URL: Joi.string().uri().required(),
   LOG_LEVEL: Joi.string().valid('fatal', 'error', 'warn', 'info', 'debug', 'trace').default('info'),
 
   DATABASE_URL: Joi.string().uri().required(),
@@ -17,6 +18,11 @@ export const envValidationSchema = Joi.object({
   EMAIL_FROM: Joi.string()
     .email({ tlds: { allow: false } })
     .required(),
+  RESEND_API_KEY: Joi.string().when('EMAIL_PROVIDER', {
+    is: 'resend',
+    then: Joi.required(),
+    otherwise: Joi.optional().allow(''),
+  }),
 
   PASSWORD_HASH_TIME_COST: Joi.number().integer().min(2).default(3),
   PASSWORD_HASH_MEMORY_COST: Joi.number().integer().min(32768).default(65536),
@@ -53,6 +59,7 @@ export type AppEnv = {
   NODE_ENV: 'development' | 'test' | 'production';
   PORT: number;
   APP_URL: string;
+  APP_PUBLIC_URL: string;
   LOG_LEVEL: string;
   DATABASE_URL: string;
   JWT_ACCESS_SECRET: string;
@@ -61,6 +68,7 @@ export type AppEnv = {
   JWT_REFRESH_TTL: string;
   EMAIL_PROVIDER: 'console' | 'resend';
   EMAIL_FROM: string;
+  RESEND_API_KEY?: string;
   PASSWORD_HASH_TIME_COST: number;
   PASSWORD_HASH_MEMORY_COST: number;
   THROTTLE_TTL: number;
