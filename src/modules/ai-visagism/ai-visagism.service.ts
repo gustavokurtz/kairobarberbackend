@@ -183,6 +183,20 @@ export class AiVisagismService {
         status: HttpStatus.GONE,
       });
     }
+    // Generation already in flight / done — checar antes do status, pois status
+    // `generating`/`generated` não passam pelo guard de `completed` mas representam
+    // exatamente "já foi pedido".
+    if (
+      consultation.outputPhotoR2Key ||
+      consultation.status === AiConsultationStatus.generating ||
+      consultation.status === AiConsultationStatus.generated
+    ) {
+      throw new DomainException({
+        code: ErrorCodes.AI_GENERATION_ALREADY_REQUESTED,
+        message: 'A geração de imagem já foi feita para esta consulta.',
+        status: HttpStatus.CONFLICT,
+      });
+    }
     if (consultation.status !== AiConsultationStatus.completed) {
       throw new DomainException({
         code: ErrorCodes.AI_CONSULTATION_NOT_READY,
@@ -205,13 +219,6 @@ export class AiVisagismService {
         code: ErrorCodes.AI_SUGGESTION_NOT_FOUND,
         message: 'Sugestão não encontrada nesta consulta.',
         status: HttpStatus.NOT_FOUND,
-      });
-    }
-    if (consultation.outputPhotoR2Key) {
-      throw new DomainException({
-        code: ErrorCodes.AI_GENERATION_ALREADY_REQUESTED,
-        message: 'A geração de imagem já foi feita para esta consulta.',
-        status: HttpStatus.CONFLICT,
       });
     }
 
