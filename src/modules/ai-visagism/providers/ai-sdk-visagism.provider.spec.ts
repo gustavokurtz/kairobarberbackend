@@ -51,7 +51,7 @@ function makeCfg(overrides: Record<string, string | number> = {}): ConfigService
     ...overrides,
   };
   return {
-    getOrThrow: <T,>(k: string) => defaults[k] as T,
+    getOrThrow: <T>(k: string) => defaults[k] as T,
   } as unknown as ConfigService;
 }
 

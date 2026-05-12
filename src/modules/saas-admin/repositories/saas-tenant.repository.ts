@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, SubscriptionStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
 
 export interface ListTenantsArgs {
@@ -19,8 +19,7 @@ export class SaasTenantRepository {
       deletedAt: null,
       suspendedAt:
         args.suspended === 'true' ? { not: null } : args.suspended === 'false' ? null : undefined,
-      subscription:
-        args.status === 'all' ? undefined : { status: args.status as SubscriptionStatus },
+      subscription: args.status === 'all' ? undefined : { status: args.status },
       OR: args.search
         ? [
             { slug: { contains: args.search, mode: 'insensitive' } },

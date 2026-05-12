@@ -35,7 +35,9 @@ describe('SaaS admin — audit-log (e2e)', () => {
       .set('Authorization', `Bearer ${saas.accessToken}`)
       .expect(200);
     const actions = (all.body as { rows: Array<{ action: string }> }).rows.map((r) => r.action);
-    expect(actions).toEqual(expect.arrayContaining(['subscription.trial_started', 'tenant.suspended']));
+    expect(actions).toEqual(
+      expect.arrayContaining(['subscription.trial_started', 'tenant.suspended']),
+    );
 
     const filtered = await request(app.getHttpServer())
       .get(`/saas/audit-log?tenantId=${t.tenantId}&action=tenant.suspended`)

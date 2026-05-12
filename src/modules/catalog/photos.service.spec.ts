@@ -21,7 +21,7 @@ describe('PhotosService', () => {
       uploadBuffer: jest.fn(),
       download: jest.fn(),
       presignGet: jest.fn(),
-    } as unknown as jest.Mocked<StorageProvider>;
+    };
     svc = new PhotosService(repo, storage);
   });
 

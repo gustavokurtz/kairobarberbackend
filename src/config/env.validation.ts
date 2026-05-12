@@ -86,7 +86,9 @@ export const envValidationSchema = Joi.object({
   BILLING_NOW_OVERRIDE_MS: Joi.number().integer().optional(),
 
   // SaaS owner bootstrap (lido apenas pelo seed)
-  SAAS_OWNER_EMAIL: Joi.string().email({ tlds: { allow: false } }).optional(),
+  SAAS_OWNER_EMAIL: Joi.string()
+    .email({ tlds: { allow: false } })
+    .optional(),
   SAAS_OWNER_PASSWORD: Joi.string().min(10).optional(),
   SAAS_OWNER_NAME: Joi.string().min(2).max(80).optional(),
   ALLOW_PROD_SEED: Joi.string().valid('true', 'false').optional(),
@@ -97,7 +99,10 @@ export const envValidationSchema = Joi.object({
   AI_VISAGISM_RETENTION_DAYS: Joi.number().integer().min(1).max(365).default(7),
   AI_VISAGISM_CLEANUP_CRON: Joi.string().default('0 3 * * *'),
   AI_VISAGISM_QUOTA_RESET_CRON: Joi.string().default('5 0 1 * *'),
-  AI_VISAGISM_PHOTO_MAX_BYTES: Joi.number().integer().min(102400).default(5 * 1024 * 1024),
+  AI_VISAGISM_PHOTO_MAX_BYTES: Joi.number()
+    .integer()
+    .min(102400)
+    .default(5 * 1024 * 1024),
   AI_VISAGISM_PHOTO_MIN_DIMENSION: Joi.number().integer().min(64).default(256),
   AI_VISAGISM_CONSENT_MAX_AGE_SECONDS: Joi.number().integer().min(60).default(3600),
   AI_VISAGISM_GROQ_MODEL: Joi.string().default('meta-llama/llama-4-scout-17b-16e-instruct'),

@@ -39,8 +39,8 @@ function makeProcessor() {
     repo as unknown as AiConsultationRepository,
     quota as unknown as QuotaService,
     audit as unknown as AuditService,
-    storage as never,
-    provider as never,
+    storage,
+    provider,
     cfg,
     logger,
   );

@@ -3,10 +3,7 @@ import { AuditService } from 'src/common/audit/audit.service';
 import { AuditActions } from 'src/common/audit/audit-actions';
 import { DomainException } from 'src/common/exceptions/domain.exception';
 import { ErrorCodes } from 'src/common/exceptions/error-codes';
-import {
-  ListTenantsArgs,
-  SaasTenantRepository,
-} from '../repositories/saas-tenant.repository';
+import { ListTenantsArgs, SaasTenantRepository } from '../repositories/saas-tenant.repository';
 
 @Injectable()
 export class SaasTenantsService {

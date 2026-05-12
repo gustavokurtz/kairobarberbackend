@@ -62,15 +62,18 @@ describe('SaasTenantsService', () => {
   });
 
   it('suspend lança 409 quando tenant já está suspenso', async () => {
-    repo.findById.mockResolvedValueOnce({ id: 't1', suspendedAt: new Date(), slug: 's' } as never);
+    repo.findById.mockResolvedValueOnce({ id: 't1', suspendedAt: new Date(), slug: 's' });
     await expect(svc.suspend('t1', 'admin1')).rejects.toMatchObject({
       opts: { code: 'TENANT_ALREADY_SUSPENDED' },
     });
   });
 
   it('suspend chama repo.setSuspended e audit.record', async () => {
-    repo.findById.mockResolvedValueOnce({ id: 't1', suspendedAt: null, slug: 's' } as never);
-    repo.setSuspended.mockResolvedValueOnce({ id: 't1', suspendedAt: new Date('2026-05-12') } as never);
+    repo.findById.mockResolvedValueOnce({ id: 't1', suspendedAt: null, slug: 's' });
+    repo.setSuspended.mockResolvedValueOnce({
+      id: 't1',
+      suspendedAt: new Date('2026-05-12'),
+    });
     const res = await svc.suspend('t1', 'admin1');
     expect(repo.setSuspended).toHaveBeenCalledWith('t1', expect.any(Date));
     expect(audit.record).toHaveBeenCalledWith(
@@ -84,15 +87,15 @@ describe('SaasTenantsService', () => {
   });
 
   it('unsuspend lança 409 quando tenant não está suspenso', async () => {
-    repo.findById.mockResolvedValueOnce({ id: 't1', suspendedAt: null, slug: 's' } as never);
+    repo.findById.mockResolvedValueOnce({ id: 't1', suspendedAt: null, slug: 's' });
     await expect(svc.unsuspend('t1', 'admin1')).rejects.toMatchObject({
       opts: { code: 'TENANT_NOT_SUSPENDED' },
     });
   });
 
   it('unsuspend chama repo.setSuspended(null) e audit.record', async () => {
-    repo.findById.mockResolvedValueOnce({ id: 't1', suspendedAt: new Date(), slug: 's' } as never);
-    repo.setSuspended.mockResolvedValueOnce({ id: 't1', suspendedAt: null } as never);
+    repo.findById.mockResolvedValueOnce({ id: 't1', suspendedAt: new Date(), slug: 's' });
+    repo.setSuspended.mockResolvedValueOnce({ id: 't1', suspendedAt: null });
     await svc.unsuspend('t1', 'admin1');
     expect(repo.setSuspended).toHaveBeenCalledWith('t1', null);
     expect(audit.record).toHaveBeenCalledWith(

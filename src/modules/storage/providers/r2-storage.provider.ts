@@ -1,9 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { S3Client, DeleteObjectCommand, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  DeleteObjectCommand,
+  PutObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { PresignedUpload, PresignUploadInput, StorageProvider, UploadBufferInput, UploadBufferResult } from '../storage.provider';
+import {
+  PresignedUpload,
+  PresignUploadInput,
+  StorageProvider,
+  UploadBufferInput,
+  UploadBufferResult,
+} from '../storage.provider';
 
 @Injectable()
 export class R2StorageProvider implements StorageProvider {
@@ -65,9 +76,7 @@ export class R2StorageProvider implements StorageProvider {
   }
 
   async download(r2Key: string): Promise<Buffer> {
-    const out = await this.client.send(
-      new GetObjectCommand({ Bucket: this.bucket, Key: r2Key }),
-    );
+    const out = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: r2Key }));
     if (!out.Body) {
       throw new Error(`R2 object missing body: ${r2Key}`);
     }

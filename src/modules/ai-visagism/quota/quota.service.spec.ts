@@ -10,7 +10,8 @@ function makeService(limit = 3) {
     resetAll: jest.fn(),
   };
   const cfg = {
-    getOrThrow: <T,>(k: string) => (k === 'AI_VISAGISM_MONTHLY_QUOTA' ? (limit as unknown as T) : (undefined as unknown as T)),
+    getOrThrow: <T>(k: string) =>
+      k === 'AI_VISAGISM_MONTHLY_QUOTA' ? (limit as unknown as T) : (undefined as unknown as T),
   } as unknown as ConfigService;
   const logger = { log: jest.fn(), warn: jest.fn() } as unknown as Logger;
   const service = new QuotaService(repo as unknown as QuotaRepository, cfg, logger);

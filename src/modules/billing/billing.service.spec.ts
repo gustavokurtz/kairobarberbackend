@@ -85,7 +85,7 @@ describe('BillingService — core', () => {
     });
 
     it('grava audit log em startTrial', async () => {
-      repo.create.mockResolvedValueOnce({ id: 's1' } as never);
+      repo.create.mockResolvedValueOnce({ id: 's1' });
       await svc.startTrial({ tenantId: 't1' });
       expect(audit.record).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -98,7 +98,7 @@ describe('BillingService — core', () => {
     });
 
     it('encaminha tx para audit.record quando startTrial roda dentro de transação', async () => {
-      repo.create.mockResolvedValueOnce({ id: 's1' } as never);
+      repo.create.mockResolvedValueOnce({ id: 's1' });
       const tx = { $kind: 'tx' } as never;
       await svc.startTrial({ tenantId: 't1', tx });
       expect(audit.record).toHaveBeenCalledWith(expect.any(Object), tx);

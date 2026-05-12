@@ -93,9 +93,11 @@ export class AiConsultationRepository {
   }
 
   /** Marca como expirado e zera dados sensíveis. Idempotente. */
-  async markExpiredIfDue(
-    id: string,
-  ): Promise<{ updated: boolean; previousInputKey: string | null; previousOutputKey: string | null }> {
+  async markExpiredIfDue(id: string): Promise<{
+    updated: boolean;
+    previousInputKey: string | null;
+    previousOutputKey: string | null;
+  }> {
     const current = await this.prisma.aiConsultation.findUnique({ where: { id } });
     if (!current || current.expiredAt !== null) {
       return { updated: false, previousInputKey: null, previousOutputKey: null };
