@@ -65,8 +65,4 @@ export class BarberInvitationsService {
     }
     return found;
   }
-
-  markAccepted(id: string) {
-    return this.repo.markAccepted(id);
-  }
 }

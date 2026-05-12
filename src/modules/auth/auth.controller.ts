@@ -79,6 +79,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('barbers/accept-invite')
   @HttpCode(HttpStatus.OK)
   async acceptBarberInvite(@Body() dto: AcceptBarberInviteDto) {

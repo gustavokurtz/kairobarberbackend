@@ -246,10 +246,17 @@ export class AuthService {
         where: { id: invitation.barberId },
         data: { userId: user.id },
       });
-      await tx.barberInvitation.update({
-        where: { id: invitation.id },
+      const accepted = await tx.barberInvitation.updateMany({
+        where: { id: invitation.id, acceptedAt: null },
         data: { acceptedAt: new Date() },
       });
+      if (accepted.count === 0) {
+        throw new DomainException({
+          code: ErrorCodes.INVITATION_ALREADY_ACCEPTED,
+          message: 'Convite já foi aceito.',
+          status: HttpStatus.CONFLICT,
+        });
+      }
       return { user };
     });
 

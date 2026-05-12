@@ -16,7 +16,14 @@ export class BarberInvitationRepository {
     // NOT scoped: aceite do convite é PÚBLICO (sem tenant no contexto).
     return this.prisma.barberInvitation.findUnique({
       where: { tokenHash },
-      include: { barber: true, tenant: true },
+      select: {
+        id: true,
+        email: true,
+        barberId: true,
+        tenantId: true,
+        expiresAt: true,
+        acceptedAt: true,
+      },
     });
   }
 

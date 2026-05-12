@@ -47,9 +47,7 @@ describe('BarberInvitationsService', () => {
       barberId: 'b1',
       tenantId: 't1',
       email: 'e@e.com',
-      barber: {},
-      tenant: {},
-    } as never);
+    });
     await expect(svc.validate('plain')).resolves.toMatchObject({ id: 'inv1' });
   });
 
