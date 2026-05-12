@@ -9,6 +9,7 @@ import { LogoutDto } from './dto/logout.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { AcceptBarberInviteDto } from './dto/accept-barber-invite.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -75,5 +76,18 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async resetPassword(@Body() dto: ResetPasswordDto) {
     await this.auth.resetPassword(dto.token, dto.newPassword);
+  }
+
+  @Public()
+  @Post('barbers/accept-invite')
+  @HttpCode(HttpStatus.OK)
+  async acceptBarberInvite(@Body() dto: AcceptBarberInviteDto) {
+    const r = await this.auth.acceptBarberInvite(dto);
+    return {
+      user: { id: r.user.id, email: r.user.email, name: r.user.name, role: r.user.role },
+      tenantId: r.tenantId,
+      accessToken: r.accessToken,
+      refreshToken: r.refreshToken,
+    };
   }
 }

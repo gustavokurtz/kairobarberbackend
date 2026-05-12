@@ -1,0 +1,7 @@
+import { IsString, MaxLength, MinLength } from 'class-validator';
+
+export class AcceptBarberInviteDto {
+  @IsString() @MinLength(20) token!: string;
+  @IsString() @MinLength(8) @MaxLength(128) password!: string;
+  @IsString() @MinLength(2) @MaxLength(80) name!: string;
+}

@@ -10,9 +10,10 @@ import { UserRepository } from './repositories/user.repository';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { OneTimeTokenRepository } from './repositories/one-time-token.repository';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { BarbersModule } from 'src/modules/barbers/barbers.module';
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), BarbersModule],
   controllers: [AuthController],
   providers: [
     AuthService,

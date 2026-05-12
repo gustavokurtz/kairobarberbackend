@@ -13,6 +13,7 @@ import { UserRepository } from './repositories/user.repository';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { RegisterOwnerDto } from './dto/register-owner.dto';
 import { RESERVED_SLUGS } from './reserved-slugs';
+import { BarberInvitationsService } from 'src/modules/barbers/barber-invitations.service';
 
 @Injectable()
 export class AuthService {
@@ -25,7 +26,23 @@ export class AuthService {
     private readonly refreshes: RefreshTokenRepository,
     private readonly config: ConfigService,
     @Inject(EMAIL_PROVIDER) private readonly email: EmailProvider,
+    private readonly barberInvitations: BarberInvitationsService,
   ) {}
+
+  private async resolveTenantIdFor(userId: string, role: UserRole): Promise<string | undefined> {
+    if (role === UserRole.tenant_owner) {
+      const tenant = await this.prisma.tenant.findUnique({ where: { ownerUserId: userId } });
+      return tenant?.id;
+    }
+    if (role === UserRole.barber_member) {
+      const barber = await this.prisma.barber.findUnique({
+        where: { userId },
+        select: { tenantId: true },
+      });
+      return barber?.tenantId;
+    }
+    return undefined;
+  }
 
   async registerOwner(dto: RegisterOwnerDto) {
     if (RESERVED_SLUGS.has(dto.slug)) {
@@ -109,12 +126,8 @@ export class AuthService {
       });
     }
 
-    const tenant = await this.prisma.tenant.findUnique({ where: { ownerUserId: user.id } });
-    const pair = await this.tokens.issuePair({
-      userId: user.id,
-      role: user.role,
-      tenantId: tenant?.id,
-    });
+    const tenantId = await this.resolveTenantIdFor(user.id, user.role);
+    const pair = await this.tokens.issuePair({ userId: user.id, role: user.role, tenantId });
     return { user, ...pair };
   }
 
@@ -154,12 +167,8 @@ export class AuthService {
       });
     }
 
-    const tenant = await this.prisma.tenant.findUnique({ where: { ownerUserId: user.id } });
-    const pair = await this.tokens.issuePair({
-      userId: user.id,
-      role: user.role,
-      tenantId: tenant?.id,
-    });
+    const tenantId = await this.resolveTenantIdFor(user.id, user.role);
+    const pair = await this.tokens.issuePair({ userId: user.id, role: user.role, tenantId });
     await this.refreshes.rotate(stored.id, pair.refreshTokenId);
     return pair;
   }
@@ -207,5 +216,48 @@ export class AuthService {
     const passwordHash = await this.password.hash(newPassword);
     await this.users.updatePassword(result.userId, passwordHash);
     await this.refreshes.revokeAllForUser(result.userId);
+  }
+
+  async acceptBarberInvite(input: { token: string; password: string; name: string }) {
+    const invitation = await this.barberInvitations.validate(input.token);
+
+    const existingUser = await this.users.findByEmail(invitation.email);
+    if (existingUser) {
+      throw new DomainException({
+        code: ErrorCodes.EMAIL_ALREADY_REGISTERED,
+        message: 'Email já cadastrado.',
+        status: HttpStatus.CONFLICT,
+      });
+    }
+
+    const passwordHash = await this.password.hash(input.password);
+
+    const { user } = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: invitation.email,
+          name: input.name,
+          passwordHash,
+          role: UserRole.barber_member,
+          emailVerifiedAt: new Date(),
+        },
+      });
+      await tx.barber.update({
+        where: { id: invitation.barberId },
+        data: { userId: user.id },
+      });
+      await tx.barberInvitation.update({
+        where: { id: invitation.id },
+        data: { acceptedAt: new Date() },
+      });
+      return { user };
+    });
+
+    const pair = await this.tokens.issuePair({
+      userId: user.id,
+      role: user.role,
+      tenantId: invitation.tenantId,
+    });
+    return { user, tenantId: invitation.tenantId, ...pair };
   }
 }

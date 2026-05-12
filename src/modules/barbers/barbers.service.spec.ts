@@ -1,10 +1,12 @@
 import { BarbersService } from './barbers.service';
 import { BarberRepository } from './repositories/barber.repository';
+import { BarberInvitationsService } from './barber-invitations.service';
 import { DomainException } from 'src/common/exceptions/domain.exception';
 import { ErrorCodes } from 'src/common/exceptions/error-codes';
 
 describe('BarbersService', () => {
   let repo: jest.Mocked<BarberRepository>;
+  let invitations: jest.Mocked<BarberInvitationsService>;
   let svc: BarbersService;
 
   beforeEach(() => {
@@ -15,7 +17,10 @@ describe('BarbersService', () => {
       update: jest.fn(),
       softDelete: jest.fn(),
     } as unknown as jest.Mocked<BarberRepository>;
-    svc = new BarbersService(repo);
+    invitations = {
+      issue: jest.fn().mockResolvedValue({ invitation: { id: 'inv1' }, tokenPlain: 'tok' }),
+    } as unknown as jest.Mocked<BarberInvitationsService>;
+    svc = new BarbersService(repo, invitations);
   });
 
   it('list() returns repository.list()', async () => {
@@ -30,23 +35,22 @@ describe('BarbersService', () => {
     });
   });
 
-  it('create() forwards displayName + bio when no email is given', async () => {
+  it('create() without email does NOT issue invitation', async () => {
     repo.create.mockResolvedValue({ id: 'new', displayName: 'X' } as never);
-    await svc.create({ displayName: 'X', bio: 'b' });
+    await svc.create({ displayName: 'X' });
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(repo.create).toHaveBeenCalledWith({ displayName: 'X', bio: 'b' });
+    expect(invitations.issue).not.toHaveBeenCalled();
   });
 
-  it('create() strips email before forwarding to repo', async () => {
+  it('create() with email issues invitation', async () => {
     repo.create.mockResolvedValue({ id: 'new', displayName: 'X' } as never);
-    await svc.create({ displayName: 'X', bio: 'b', email: 'someone@test.com' });
+    await svc.create({ displayName: 'X', email: 'e@e.com' });
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(repo.create).toHaveBeenCalledWith({ displayName: 'X', bio: 'b' });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(repo.create).not.toHaveBeenCalledWith(
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      expect.objectContaining({ email: expect.anything() }),
-    );
+    expect(invitations.issue).toHaveBeenCalledWith({
+      barberId: 'new',
+      email: 'e@e.com',
+      displayName: 'X',
+    });
   });
 
   it('update() rejects unknown barber with 404', async () => {
