@@ -90,6 +90,30 @@ export const envValidationSchema = Joi.object({
   SAAS_OWNER_PASSWORD: Joi.string().min(10).optional(),
   SAAS_OWNER_NAME: Joi.string().min(2).max(80).optional(),
   ALLOW_PROD_SEED: Joi.string().valid('true', 'false').optional(),
+
+  // AI Visagism (Fase 6)
+  AI_VISAGISM_PROVIDER: Joi.string().valid('console', 'aisdk').default('console'),
+  AI_VISAGISM_MONTHLY_QUOTA: Joi.number().integer().min(0).default(100),
+  AI_VISAGISM_RETENTION_DAYS: Joi.number().integer().min(1).max(365).default(7),
+  AI_VISAGISM_CLEANUP_CRON: Joi.string().default('0 3 * * *'),
+  AI_VISAGISM_QUOTA_RESET_CRON: Joi.string().default('5 0 1 * *'),
+  AI_VISAGISM_PHOTO_MAX_BYTES: Joi.number().integer().min(102400).default(5 * 1024 * 1024),
+  AI_VISAGISM_PHOTO_MIN_DIMENSION: Joi.number().integer().min(64).default(256),
+  AI_VISAGISM_CONSENT_MAX_AGE_SECONDS: Joi.number().integer().min(60).default(3600),
+  AI_VISAGISM_GROQ_MODEL: Joi.string().default('meta-llama/llama-4-scout-17b-16e-instruct'),
+  AI_VISAGISM_GROQ_PRICE_PER_MTOK_CENTS: Joi.number().min(0).default(1),
+  AI_VISAGISM_OPENAI_IMAGE_MODEL: Joi.string().default('gpt-image-1'),
+  AI_VISAGISM_OPENAI_IMAGE_COST_CENTS: Joi.number().integer().min(0).default(4),
+  GROQ_API_KEY: Joi.string().when('AI_VISAGISM_PROVIDER', {
+    is: 'aisdk',
+    then: Joi.required(),
+    otherwise: Joi.optional().allow(''),
+  }),
+  OPENAI_API_KEY: Joi.string().when('AI_VISAGISM_PROVIDER', {
+    is: 'aisdk',
+    then: Joi.required(),
+    otherwise: Joi.optional().allow(''),
+  }),
 });
 
 export type AppEnv = {
@@ -133,4 +157,18 @@ export type AppEnv = {
   SAAS_OWNER_PASSWORD?: string;
   SAAS_OWNER_NAME?: string;
   ALLOW_PROD_SEED?: 'true' | 'false';
+  AI_VISAGISM_PROVIDER: 'console' | 'aisdk';
+  AI_VISAGISM_MONTHLY_QUOTA: number;
+  AI_VISAGISM_RETENTION_DAYS: number;
+  AI_VISAGISM_CLEANUP_CRON: string;
+  AI_VISAGISM_QUOTA_RESET_CRON: string;
+  AI_VISAGISM_PHOTO_MAX_BYTES: number;
+  AI_VISAGISM_PHOTO_MIN_DIMENSION: number;
+  AI_VISAGISM_CONSENT_MAX_AGE_SECONDS: number;
+  AI_VISAGISM_GROQ_MODEL: string;
+  AI_VISAGISM_GROQ_PRICE_PER_MTOK_CENTS: number;
+  AI_VISAGISM_OPENAI_IMAGE_MODEL: string;
+  AI_VISAGISM_OPENAI_IMAGE_COST_CENTS: number;
+  GROQ_API_KEY?: string;
+  OPENAI_API_KEY?: string;
 };
