@@ -40,7 +40,11 @@ export async function runAiJob(
   return processor.process(fakeJob);
 }
 
-export async function runAnalysisJob(app: INestApplication, consultationId: string, tenantId: string) {
+export async function runAnalysisJob(
+  app: INestApplication,
+  consultationId: string,
+  tenantId: string,
+) {
   return runAiJob(app, JOB_AI_ANALYSIS, { consultationId, tenantId });
 }
 

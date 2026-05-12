@@ -61,11 +61,7 @@ describe('AI Visagism — tokens e tenancy (e2e)', () => {
 
   it('viewToken serve apenas para a consulta dele (não cross-consultation)', async () => {
     const server = app.getHttpServer() as Express.Application;
-    const { tenantId } = await createTenantOwner(
-      app,
-      'cross-token-shop',
-      'cross-token@kairo.test',
-    );
+    const { tenantId } = await createTenantOwner(app, 'cross-token-shop', 'cross-token@kairo.test');
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) throw new Error('tenant');
     const a = await request(server)

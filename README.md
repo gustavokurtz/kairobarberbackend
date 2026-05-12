@@ -85,3 +85,5 @@ Fase 6: módulo `ai-visagism` com `/public/{slug}/ai/visagism/consultations` (mu
 ## Deploy
 
 Push em `main` → CI verde → deploy automático no Railway. Healthcheck em `/health/ready`.
+
+**Lifecycle no R2:** configurar regra do bucket "delete objects in `tenants/*/ai-visagism/*` older than 30 days" como rede de segurança caso o cron de cleanup pule alguma row.

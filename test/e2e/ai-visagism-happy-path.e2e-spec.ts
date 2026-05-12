@@ -89,7 +89,9 @@ describe('AI Visagism — happy path (e2e)', () => {
       status: AiConsultationStatus.completed,
       hasGeneratedImage: false,
     });
-    expect((getRes.body as { analysis: { suggestions: unknown[] } }).analysis.suggestions.length).toBeGreaterThanOrEqual(2);
+    expect(
+      (getRes.body as { analysis: { suggestions: unknown[] } }).analysis.suggestions.length,
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it('GET sem token retorna 400', async () => {

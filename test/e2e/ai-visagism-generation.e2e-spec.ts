@@ -109,11 +109,7 @@ describe('AI Visagism — geração de imagem (e2e)', () => {
 
   it('404 AI_SUGGESTION_NOT_FOUND se suggestionId não bate', async () => {
     const server = app.getHttpServer() as Express.Application;
-    const { tenantId } = await createTenantOwner(
-      app,
-      'gen-bad-sug-shop',
-      'gen-bad-sug@kairo.test',
-    );
+    const { tenantId } = await createTenantOwner(app, 'gen-bad-sug-shop', 'gen-bad-sug@kairo.test');
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) throw new Error('tenant');
     const create = await request(server)
