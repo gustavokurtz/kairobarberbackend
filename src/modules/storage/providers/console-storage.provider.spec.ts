@@ -1,4 +1,5 @@
 import { ConsoleStorageProvider } from './console-storage.provider';
+import { extensionFromContentType } from '../storage.provider';
 
 describe('ConsoleStorageProvider', () => {
   const provider = new ConsoleStorageProvider();
@@ -21,5 +22,9 @@ describe('ConsoleStorageProvider', () => {
 
   it('delete() never throws even for unknown keys', async () => {
     await expect(provider.delete('nope')).resolves.toBeUndefined();
+  });
+
+  it('extensionFromContentType() throws on unsupported content type', () => {
+    expect(() => extensionFromContentType('application/pdf')).toThrow('Unsupported content type');
   });
 });

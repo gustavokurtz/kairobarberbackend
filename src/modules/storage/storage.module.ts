@@ -11,7 +11,7 @@ import { ConsoleStorageProvider } from './providers/console-storage.provider';
       useFactory: (cfg: ConfigService) => {
         const provider = cfg.get<string>('STORAGE_PROVIDER');
         if (provider === 'console') return new ConsoleStorageProvider();
-        // R2 será adicionado na Task 13
+        // R2 será adicionado na Task 12
         throw new Error(`Unsupported STORAGE_PROVIDER: ${provider}`);
       },
       inject: [ConfigService],
