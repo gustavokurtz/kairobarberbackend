@@ -122,7 +122,7 @@ describe('CustomersService.consumeClaimToken', () => {
 
     const svc = new CustomersService(repo);
     await expect(svc.consumeClaimToken('any-plain-token')).rejects.toMatchObject({
-      response: expect.objectContaining({ code: 'CLAIM_TOKEN_INVALID' }),
+      response: { code: 'CLAIM_TOKEN_INVALID' },
       status: 400,
     });
   });
@@ -137,7 +137,7 @@ describe('CustomersService.consumeClaimToken', () => {
 
     const svc = new CustomersService(repo);
     await expect(svc.consumeClaimToken('plain')).rejects.toMatchObject({
-      response: expect.objectContaining({ code: 'CLAIM_TOKEN_INVALID' }),
+      response: { code: 'CLAIM_TOKEN_INVALID' },
       status: 400,
     });
   });
@@ -152,7 +152,7 @@ describe('CustomersService.consumeClaimToken', () => {
 
     const svc = new CustomersService(repo);
     await expect(svc.consumeClaimToken('plain')).rejects.toMatchObject({
-      response: expect.objectContaining({ code: 'CLAIM_TOKEN_INVALID' }),
+      response: { code: 'CLAIM_TOKEN_INVALID' },
       status: 409,
     });
   });
