@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
 
 @Injectable()
@@ -10,5 +11,9 @@ export class TenantRepository {
       where: { id },
       include: { subscription: true },
     });
+  }
+
+  update(id: string, data: Prisma.TenantUpdateInput) {
+    return this.prisma.tenant.update({ where: { id }, data });
   }
 }

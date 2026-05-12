@@ -1,10 +1,15 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, UseGuards } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { TenantGuard } from 'src/common/guards/tenant.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
 import { CurrentTenant } from 'src/common/decorators/current-tenant.decorator';
 import { TenantsService } from './tenants.service';
+import { UpdateTenantDto } from './dto/update-tenant.dto';
+import { UpdateBusinessHoursDto } from './dto/update-business-hours.dto';
 
 @Controller('admin/tenant')
-@UseGuards(TenantGuard)
+@UseGuards(TenantGuard, RolesGuard)
 export class TenantsController {
   constructor(private readonly tenants: TenantsService) {}
 
@@ -15,7 +20,12 @@ export class TenantsController {
       id: t.id,
       slug: t.slug,
       name: t.name,
+      bio: t.bio,
+      address: t.address,
+      phone: t.phone,
+      avatarUrl: t.avatarUrl,
       timezone: t.timezone,
+      businessHours: t.businessHours ?? null,
       subscription: t.subscription
         ? {
             status: t.subscription.status,
@@ -26,9 +36,35 @@ export class TenantsController {
     };
   }
 
+  @Patch()
+  @Roles(UserRole.tenant_owner)
+  @HttpCode(HttpStatus.OK)
+  async update(@CurrentTenant() tenantId: string, @Body() dto: UpdateTenantDto) {
+    const t = await this.tenants.update(tenantId, dto);
+    return {
+      id: t.id,
+      name: t.name,
+      bio: t.bio,
+      address: t.address,
+      phone: t.phone,
+      avatarUrl: t.avatarUrl,
+      timezone: t.timezone,
+    };
+  }
+
+  @Patch('business-hours')
+  @Roles(UserRole.tenant_owner)
+  @HttpCode(HttpStatus.OK)
+  async updateBusinessHours(
+    @CurrentTenant() tenantId: string,
+    @Body() dto: UpdateBusinessHoursDto,
+  ) {
+    const t = await this.tenants.updateBusinessHours(tenantId, dto.businessHours);
+    return { businessHours: t.businessHours };
+  }
+
   @Get('subscription-debug')
   async listMy(@CurrentTenant() _tenantId: string) {
-    // _tenantId é ignorado: o middleware Prisma já filtra. Param existe pra forçar TenantGuard.
     return this.tenants.listMySubscription();
   }
 }

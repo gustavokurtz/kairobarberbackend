@@ -3,6 +3,8 @@ import { DomainException } from 'src/common/exceptions/domain.exception';
 import { ErrorCodes } from 'src/common/exceptions/error-codes';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
 import { TenantRepository } from './repositories/tenant.repository';
+import { UpdateTenantDto } from './dto/update-tenant.dto';
+import { validateBusinessHours } from './business-hours';
 
 @Injectable()
 export class TenantsService {
@@ -23,11 +25,19 @@ export class TenantsService {
     return t;
   }
 
-  /**
-   * Demonstra leitura de subscriptions filtrada por tenant via Prisma extension.
-   * Em produção, callers NUNCA devem ver subscriptions de outros tenants.
-   * Usado pelo teste E2E de tenant isolation (Task 26).
-   */
+  async update(tenantId: string, dto: UpdateTenantDto) {
+    await this.getCurrent(tenantId); // 404 se não existe
+    return this.repo.update(tenantId, dto);
+  }
+
+  async updateBusinessHours(tenantId: string, businessHours: unknown) {
+    await this.getCurrent(tenantId);
+    validateBusinessHours(businessHours);
+    return this.repo.update(tenantId, {
+      businessHours: businessHours,
+    });
+  }
+
   listMySubscription() {
     return this.prisma.scoped.subscription.findMany({});
   }
