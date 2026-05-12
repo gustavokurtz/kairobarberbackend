@@ -122,6 +122,77 @@ export class BillingService {
       mpPreapprovalId: sub.mpPreapprovalId,
     });
   }
+
+  async createCheckout(input: {
+    tenantId: string;
+    tenantSlug: string;
+    ownerEmail: string;
+  }): Promise<{ initPoint: string }> {
+    const sub = await this.repo.findByTenantId(input.tenantId);
+    if (!sub) {
+      throw new DomainException({
+        code: ErrorCodes.SUBSCRIPTION_NOT_FOUND,
+        message: 'Assinatura não encontrada.',
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
+    if (sub.status === SubscriptionStatus.active) {
+      throw new DomainException({
+        code: ErrorCodes.SUBSCRIPTION_ALREADY_ACTIVE,
+        message: 'Assinatura já está ativa.',
+        status: HttpStatus.CONFLICT,
+      });
+    }
+
+    const amountCents = this.config.get<number>('MP_PLAN_AMOUNT_CENTS') ?? 4990;
+    const created = await this.provider.createPreapproval({
+      tenantId: input.tenantId,
+      tenantSlug: input.tenantSlug,
+      payerEmail: input.ownerEmail,
+      reason: `Assinatura KairoBarber - ${input.tenantSlug}`,
+      amountCents,
+      frequency: 'months',
+    });
+
+    const nextSyncAt = new Date(this.now().getTime() + 60 * 60 * 1000); // sondagem pós-checkout em 1h
+    await this.repo.update(input.tenantId, {
+      mpPreapprovalId: created.preapprovalId,
+      status: SubscriptionStatus.trialing,
+      nextSyncAt,
+    });
+
+    this.logger.log({
+      event: 'subscription.checkout_created',
+      tenantId: input.tenantId,
+      mpPreapprovalId: created.preapprovalId,
+    });
+
+    return { initPoint: created.initPoint };
+  }
+
+  async syncSubscription(tenantId: string): Promise<void> {
+    const sub = await this.repo.findByTenantId(tenantId);
+    if (!sub || !sub.mpPreapprovalId) return;
+    const remote = await this.provider.fetchPreapproval(sub.mpPreapprovalId);
+    await this.applyRemoteState(sub, remote);
+  }
+
+  async listInvoices(
+    tenantId: string,
+    q: { page: number; pageSize: number },
+  ): Promise<
+    Array<{
+      id: string;
+      amountCents: number;
+      status: 'approved' | 'rejected' | 'pending' | 'refunded';
+      paidAt: Date | null;
+      dueAt: Date | null;
+    }>
+  > {
+    const sub = await this.repo.findByTenantId(tenantId);
+    if (!sub?.mpPreapprovalId) return [];
+    return this.provider.listPayments(sub.mpPreapprovalId, q);
+  }
 }
 
 function mapRemoteStatus(
