@@ -75,7 +75,7 @@ export class SaasAdminController {
 
   @Get('ai-usage')
   listAiUsage(@Query() q: ListAiUsageQueryDto) {
-    return this.aiUsage.snapshot({ page: q.page, pageSize: q.pageSize });
+    return this.aiUsage.snapshot({ page: q.page, pageSize: q.pageSize, detailed: q.detailed });
   }
 
   @Get('users')
