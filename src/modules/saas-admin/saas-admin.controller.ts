@@ -14,8 +14,14 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import type { AuthenticatedUser } from 'src/common/types/request-context';
 import { ListTenantsQueryDto } from './dto/list-tenants-query.dto';
+import { ListAiUsageQueryDto } from './dto/list-ai-usage-query.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
+import { ListAuditLogQueryDto } from './dto/list-audit-log-query.dto';
 import { SaasTenantsService } from './services/saas-tenants.service';
 import { SaasMetricsService } from './services/saas-metrics.service';
+import { SaasAiUsageService } from './services/saas-ai-usage.service';
+import { SaasUsersService } from './services/saas-users.service';
+import { SaasAuditService } from './services/saas-audit.service';
 
 @Controller('saas')
 @UseGuards(RolesGuard)
@@ -24,6 +30,9 @@ export class SaasAdminController {
   constructor(
     private readonly tenants: SaasTenantsService,
     private readonly metrics: SaasMetricsService,
+    private readonly aiUsage: SaasAiUsageService,
+    private readonly users: SaasUsersService,
+    private readonly auditLogService: SaasAuditService,
   ) {}
 
   @Get('ping')
@@ -62,5 +71,33 @@ export class SaasAdminController {
   @HttpCode(HttpStatus.OK)
   unsuspendTenant(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.tenants.unsuspend(id, user.id);
+  }
+
+  @Get('ai-usage')
+  listAiUsage(@Query() q: ListAiUsageQueryDto) {
+    return this.aiUsage.snapshot({ page: q.page, pageSize: q.pageSize });
+  }
+
+  @Get('users')
+  listUsers(@Query() q: ListUsersQueryDto) {
+    return this.users.list({
+      page: q.page,
+      pageSize: q.pageSize,
+      role: q.role,
+      search: q.search,
+    });
+  }
+
+  @Get('audit-log')
+  listAuditLog(@Query() q: ListAuditLogQueryDto) {
+    return this.auditLogService.list({
+      page: q.page,
+      pageSize: q.pageSize,
+      tenantId: q.tenantId,
+      actorUserId: q.actorUserId,
+      action: q.action,
+      from: q.from,
+      to: q.to,
+    });
   }
 }
