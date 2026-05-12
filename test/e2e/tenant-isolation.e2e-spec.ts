@@ -4,7 +4,7 @@ import { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { setTestEnv } from '../support/test-env';
 import { startTestPostgres } from '../support/postgres-container';
 import { buildTestApp } from '../support/test-app';
-import { tenantAls } from 'src/infra/prisma/prisma.service';
+import { PrismaService } from 'src/infra/prisma/prisma.service';
 
 interface RegisterResponse {
   user: { id: string; email: string; name: string; role: string };
@@ -120,7 +120,6 @@ describe('Tenant Isolation (e2e) — CRÍTICO', () => {
   it('scoped middleware also filters Barber for tenants A and B', async () => {
     // Create a barber for each tenant via raw scoped client (mirrors what BarbersService will do)
     // We use PrismaService directly via the Nest container.
-    const { PrismaService } = await import('src/infra/prisma/prisma.service');
     const prisma = app.get(PrismaService);
 
     // Create barbers using the unscoped client (tenantId provided explicitly) to seed test data.
@@ -132,18 +131,9 @@ describe('Tenant Isolation (e2e) — CRÍTICO', () => {
       data: { displayName: 'Barbeiro B1', tenantId: tenantBId },
     });
 
-    // Use enterWith so Prisma's N-API callbacks inherit the same ALS context
-    // (mirrors how JWT guard mutates the store set by the HTTP ALS middleware).
-    const seenByA = await new Promise<{ displayName: string }[]>((resolve, reject) => {
-      tenantAls.run({ tenantId: tenantAId }, () => {
-        prisma.scoped.barber.findMany().then(resolve).catch(reject);
-      });
-    });
-    const seenByB = await new Promise<{ displayName: string }[]>((resolve, reject) => {
-      tenantAls.run({ tenantId: tenantBId }, () => {
-        prisma.scoped.barber.findMany().then(resolve).catch(reject);
-      });
-    });
+    // Use tenantAls.run so prisma.scoped picks up tenantId from the ALS store.
+    const seenByA = await prisma.withTenant(tenantAId, () => prisma.scoped.barber.findMany());
+    const seenByB = await prisma.withTenant(tenantBId, () => prisma.scoped.barber.findMany());
 
     expect(seenByA.map((b) => b.displayName)).toEqual(['Barbeiro A1']);
     expect(seenByB.map((b) => b.displayName)).toEqual(['Barbeiro B1']);

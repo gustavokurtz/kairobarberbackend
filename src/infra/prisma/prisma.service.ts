@@ -6,6 +6,7 @@ export type TenantContext = { tenantId?: string };
 
 export const tenantAls = new AsyncLocalStorage<TenantContext>();
 
+// Models with a tenantId column that should be auto-filtered by the scoped extension.
 const TENANT_SCOPED_MODELS = new Set<string>([
   'Subscription',
   'Barber',
@@ -33,9 +34,17 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   /**
    * Run a function within a tenant scope. All queries via `this.scoped` inside the callback
    * will be auto-filtered by tenantId.
+   *
+   * Note: wraps the result in a native Promise so that Prisma's lazy PrismaPromise is
+   * subscribed (.then called) while the ALS store is still active, which is required for
+   * the $allOperations hook to read tenantId correctly.
    */
   withTenant<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
-    return tenantAls.run({ tenantId }, fn);
+    return new Promise<T>((resolve, reject) => {
+      tenantAls.run({ tenantId }, () => {
+        fn().then(resolve).catch(reject);
+      });
+    });
   }
 
   /**
