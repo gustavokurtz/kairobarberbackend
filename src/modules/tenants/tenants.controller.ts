@@ -43,12 +43,14 @@ export class TenantsController {
     const t = await this.tenants.update(tenantId, dto);
     return {
       id: t.id,
+      slug: t.slug,
       name: t.name,
       bio: t.bio,
       address: t.address,
       phone: t.phone,
       avatarUrl: t.avatarUrl,
       timezone: t.timezone,
+      businessHours: t.businessHours ?? null,
     };
   }
 

@@ -62,4 +62,18 @@ describe('validateBusinessHours', () => {
     };
     expect(() => validateBusinessHours(bh)).toThrow(/overlap/i);
   });
+
+  it('rejects an open day with no intervals', () => {
+    const bh = {
+      days: [{ open: true, intervals: [] }, ...CLOSED_6],
+    };
+    expect(() => validateBusinessHours(bh)).toThrow(/open.*no intervals/i);
+  });
+
+  it('rejects a closed day with intervals', () => {
+    const bh = {
+      days: [{ open: false, intervals: [{ startMin: 540, endMin: 720 }] }, ...CLOSED_6],
+    };
+    expect(() => validateBusinessHours(bh)).toThrow(/closed.*intervals/i);
+  });
 });

@@ -33,6 +33,10 @@ export function validateBusinessHours(input: unknown): asserts input is Business
       fail(`day[${i}] is closed but has intervals`);
     }
 
+    if (day.open && day.intervals.length === 0) {
+      fail(`day[${i}] is open but has no intervals`);
+    }
+
     const intervals = day.intervals as BusinessInterval[];
     for (let j = 0; j < intervals.length; j++) {
       const iv = intervals[j];

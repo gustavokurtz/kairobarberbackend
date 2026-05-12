@@ -31,8 +31,8 @@ export class TenantsService {
   }
 
   async updateBusinessHours(tenantId: string, businessHours: unknown) {
-    await this.getCurrent(tenantId);
     validateBusinessHours(businessHours);
+    await this.getCurrent(tenantId);
     return this.repo.update(tenantId, {
       businessHours: businessHours,
     });
