@@ -1,4 +1,4 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 import { DomainException } from 'src/common/exceptions/domain.exception';
@@ -11,6 +11,8 @@ const INVITATION_TTL_SECONDS = 7 * 24 * 3600;
 
 @Injectable()
 export class BarberInvitationsService {
+  private readonly logger = new Logger(BarberInvitationsService.name);
+
   constructor(
     private readonly repo: BarberInvitationRepository,
     @Inject(EMAIL_PROVIDER) private readonly email: EmailProvider,
@@ -28,14 +30,27 @@ export class BarberInvitationsService {
       expiresAt,
     });
     const appUrl = this.config.get<string>('APP_URL');
-    await this.email.send({
-      to: input.email,
-      subject: 'Convite para entrar no KairoBarber',
-      text:
-        `Olá ${input.displayName}!\n\nVocê foi convidado(a) para entrar no KairoBarber como barbeiro(a). ` +
-        `Aceite o convite com o token abaixo (válido por 7 dias):\n\n${tokenPlain}\n\n` +
-        `Ou acesse: ${appUrl}/accept-invite?token=${tokenPlain}\n`,
-    });
+    // Best-effort: o invite é criado/válido mesmo se o email falhar.
+    // Owner pode reenviar o token manualmente via re-issue ou compartilhar pelo link direto.
+    try {
+      await this.email.send({
+        to: input.email,
+        subject: 'Convite para entrar no KairoBarber',
+        text:
+          `Olá ${input.displayName}!\n\nVocê foi convidado(a) para entrar no KairoBarber como barbeiro(a). ` +
+          `Aceite o convite com o token abaixo (válido por 7 dias):\n\n${tokenPlain}\n\n` +
+          `Ou acesse: ${appUrl}/accept-invite?token=${tokenPlain}\n`,
+      });
+    } catch (err) {
+      this.logger.warn(
+        {
+          event: 'barbers.invitation_email_failed',
+          barberId: input.barberId,
+          err: (err as Error).message,
+        },
+        'invitation email failed to send (invitation row persisted)',
+      );
+    }
     return { invitation, tokenPlain };
   }
 

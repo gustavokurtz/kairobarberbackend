@@ -1,4 +1,4 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OneTimeTokenPurpose, UserRole } from '@prisma/client';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
@@ -19,6 +19,8 @@ import { BillingService } from 'src/modules/billing/billing.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly password: PasswordService,
@@ -97,11 +99,20 @@ export class AuthService {
       OneTimeTokenPurpose.email_verification,
       24 * 3600,
     );
-    await this.email.send({
-      to: user.email,
-      subject: 'Confirme seu email no KairoBarber',
-      text: `Olá ${user.name}! Confirme seu email com o token abaixo (válido por 24h):\n\n${plain}\n\nOu acesse: ${this.config.get<string>('APP_URL')}/verify-email?token=${plain}`,
-    });
+    // Email externo é best-effort: falha não derruba o onboarding.
+    // O verify-email token está salvo; o usuário pode pedir reenvio depois.
+    try {
+      await this.email.send({
+        to: user.email,
+        subject: 'Confirme seu email no KairoBarber',
+        text: `Olá ${user.name}! Confirme seu email com o token abaixo (válido por 24h):\n\n${plain}\n\nOu acesse: ${this.config.get<string>('APP_URL')}/verify-email?token=${plain}`,
+      });
+    } catch (err) {
+      this.logger.warn(
+        { event: 'auth.register_owner_email_failed', userId: user.id, err: (err as Error).message },
+        'verification email failed to send (onboarding completed)',
+      );
+    }
 
     return { user, tenant, ...pair };
   }
@@ -195,11 +206,19 @@ export class AuthService {
     const user = await this.users.findByEmail(email);
     if (!user) return; // anti-enumeration
     const { plain } = await this.otts.issue(user.id, OneTimeTokenPurpose.password_reset, 3600);
-    await this.email.send({
-      to: user.email,
-      subject: 'Redefinição de senha — KairoBarber',
-      text: `Use o token abaixo para redefinir sua senha (válido por 1 hora):\n\n${plain}\n\nOu acesse: ${this.config.get<string>('APP_URL')}/reset-password?token=${plain}`,
-    });
+    // Best-effort: nunca propagar falha de email pra response (também preserva anti-enumeration).
+    try {
+      await this.email.send({
+        to: user.email,
+        subject: 'Redefinição de senha — KairoBarber',
+        text: `Use o token abaixo para redefinir sua senha (válido por 1 hora):\n\n${plain}\n\nOu acesse: ${this.config.get<string>('APP_URL')}/reset-password?token=${plain}`,
+      });
+    } catch (err) {
+      this.logger.warn(
+        { event: 'auth.forgot_password_email_failed', userId: user.id, err: (err as Error).message },
+        'reset-password email failed to send',
+      );
+    }
   }
 
   async resetPassword(token: string, newPassword: string) {
