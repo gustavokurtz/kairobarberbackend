@@ -5,6 +5,7 @@ import { AppointmentsService } from 'src/modules/scheduling/appointments.service
 import { setTestEnv } from '../support/test-env';
 import { startTestPostgres } from '../support/postgres-container';
 import { buildTestApp } from '../support/test-app';
+import { startTestRedis, flushTestRedis, StartedRedis } from '../support/billing';
 
 interface Ctx {
   tenantId: string;
@@ -17,6 +18,7 @@ interface Ctx {
 describe('AppointmentsService — race condition (e2e integration)', () => {
   let app: INestApplication;
   let container: StartedPostgreSqlContainer;
+  let redis: StartedRedis;
   let prisma: PrismaService;
   let appointments: AppointmentsService;
   let ctx: Ctx;
@@ -24,6 +26,7 @@ describe('AppointmentsService — race condition (e2e integration)', () => {
   beforeAll(async () => {
     setTestEnv();
     container = await startTestPostgres();
+    redis = await startTestRedis();
     app = await buildTestApp();
     prisma = app.get(PrismaService);
     appointments = app.get(AppointmentsService);
@@ -79,6 +82,10 @@ describe('AppointmentsService — race condition (e2e integration)', () => {
 
   afterAll(async () => {
     await app?.close();
+    if (redis) {
+      await flushTestRedis(redis.url);
+      await redis.container.stop();
+    }
     await container?.stop();
   });
 
