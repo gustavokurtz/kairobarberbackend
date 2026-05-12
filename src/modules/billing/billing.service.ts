@@ -3,7 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma, Subscription, SubscriptionStatus } from '@prisma/client';
 import { DomainException } from 'src/common/exceptions/domain.exception';
 import { ErrorCodes } from 'src/common/exceptions/error-codes';
-import { SYNC_INTERVAL_BY_STATUS } from './billing.constants';
+import {
+  SYNC_BATCH_SIZE,
+  SYNC_INTERVAL_BY_STATUS,
+  SYNC_RETRY_BACKOFF_MS,
+} from './billing.constants';
 import {
   BILLING_PROVIDER,
   type BillingProvider,
@@ -192,6 +196,69 @@ export class BillingService {
     const sub = await this.repo.findByTenantId(tenantId);
     if (!sub?.mpPreapprovalId) return [];
     return this.provider.listPayments(sub.mpPreapprovalId, q);
+  }
+
+  async runBillingSync(): Promise<{ processed: number; failed: number }> {
+    const now = this.now();
+    const subs = await this.repo.findDueForSync(now, SYNC_BATCH_SIZE);
+    let processed = 0;
+    let failed = 0;
+    for (const sub of subs) {
+      try {
+        const remote = await this.provider.fetchPreapproval(sub.mpPreapprovalId!);
+        await this.applyRemoteState(sub, remote);
+        processed += 1;
+      } catch (err) {
+        failed += 1;
+        this.logger.warn({
+          event: 'subscription.sync_failed',
+          tenantId: sub.tenantId,
+          mpPreapprovalId: sub.mpPreapprovalId,
+          error: (err as Error).message,
+        });
+        await this.repo.update(sub.tenantId, {
+          nextSyncAt: new Date(now.getTime() + SYNC_RETRY_BACKOFF_MS),
+        });
+      }
+    }
+    this.logger.log({ event: 'billing.sync_cycle', processed, failed });
+    return { processed, failed };
+  }
+
+  async runTrialCheck(): Promise<{ trialExpired: number; graceExpired: number }> {
+    const now = this.now();
+    const trialEnded = await this.repo.findExpiredTrials(now);
+    for (const sub of trialEnded) {
+      await this.repo.update(sub.tenantId, {
+        status: SubscriptionStatus.past_due,
+        nextSyncAt: sub.mpPreapprovalId ? new Date(now.getTime() + 2 * 60 * 60 * 1000) : null,
+      });
+      this.logger.log({
+        event: 'subscription.trial_expired',
+        tenantId: sub.tenantId,
+        fromStatus: 'trialing',
+        toStatus: 'past_due',
+      });
+    }
+
+    const graceDays = this.config.get<number>('BILLING_PAST_DUE_GRACE_DAYS') ?? 7;
+    const cutoff = new Date(now.getTime() - graceDays * 24 * 60 * 60 * 1000);
+    const overGrace = await this.repo.findPastDueOverGrace(cutoff);
+    for (const sub of overGrace) {
+      await this.repo.update(sub.tenantId, {
+        status: SubscriptionStatus.cancelled,
+        nextSyncAt: null,
+      });
+      this.logger.log({
+        event: 'subscription.grace_period_expired',
+        tenantId: sub.tenantId,
+        fromStatus: 'past_due',
+        toStatus: 'cancelled',
+        mpPreapprovalId: sub.mpPreapprovalId,
+      });
+    }
+
+    return { trialExpired: trialEnded.length, graceExpired: overGrace.length };
   }
 }
 
