@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { SubscriptionStatus } from '@prisma/client';
+import { AuditService } from 'src/common/audit/audit.service';
 import { BillingService } from './billing.service';
 import { SubscriptionRepository } from './repositories/subscription.repository';
 import { BillingProvider, RemoteSubscription } from './providers/billing.provider';
@@ -43,17 +44,20 @@ function mkConfig(overrides: Record<string, unknown> = {}): ConfigService {
 describe('BillingService — core', () => {
   let repo: Mocked<SubscriptionRepository>;
   let provider: Mocked<BillingProvider>;
+  let audit: { record: jest.Mock };
   let svc: BillingService;
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2026-05-12T12:00:00Z'));
     repo = mkRepo();
     provider = mkProvider();
+    audit = { record: jest.fn().mockResolvedValue(undefined) };
     svc = new BillingService(
       repo as unknown as SubscriptionRepository,
       provider,
       mkConfig(),
       new Logger('test'),
+      audit as unknown as AuditService,
     );
   });
 
@@ -78,6 +82,18 @@ describe('BillingService — core', () => {
       const tx = {} as never;
       await svc.startTrial({ tenantId: 't1', tx });
       expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ tx }));
+    });
+
+    it('grava audit log em startTrial', async () => {
+      repo.create.mockResolvedValueOnce({ id: 's1' } as never);
+      await svc.startTrial({ tenantId: 't1' });
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'subscription.trial_started',
+          tenantId: 't1',
+          targetId: 's1',
+        }),
+      );
     });
   });
 

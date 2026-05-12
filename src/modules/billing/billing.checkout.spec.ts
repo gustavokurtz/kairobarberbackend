@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
+import { AuditService } from 'src/common/audit/audit.service';
 import { BillingService } from './billing.service';
 
 function mkRepo() {
@@ -40,7 +41,8 @@ describe('BillingService — checkout/sync', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-05-12T12:00:00Z'));
     repo = mkRepo();
     provider = mkProvider();
-    svc = new BillingService(repo as never, provider, mkConfig(), new Logger('test'));
+    const audit = { record: jest.fn().mockResolvedValue(undefined) } as unknown as AuditService;
+    svc = new BillingService(repo as never, provider, mkConfig(), new Logger('test'), audit);
   });
   afterEach(() => jest.useRealTimers());
 

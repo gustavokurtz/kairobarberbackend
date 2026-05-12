@@ -1,6 +1,8 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, Subscription, SubscriptionStatus } from '@prisma/client';
+import { AuditActions } from 'src/common/audit/audit-actions';
+import { AuditService } from 'src/common/audit/audit.service';
 import { DomainException } from 'src/common/exceptions/domain.exception';
 import { ErrorCodes } from 'src/common/exceptions/error-codes';
 import {
@@ -30,6 +32,7 @@ export class BillingService {
     @Inject(BILLING_PROVIDER) private readonly provider: BillingProvider,
     private readonly config: ConfigService,
     private readonly logger: Logger,
+    private readonly audit: AuditService,
   ) {}
 
   now(): Date {
@@ -43,12 +46,20 @@ export class BillingService {
   }): Promise<Subscription> {
     const trialDays = this.config.get<number>('BILLING_TRIAL_DAYS') ?? 14;
     const trialEndsAt = new Date(this.now().getTime() + trialDays * 24 * 60 * 60 * 1000);
-    return this.repo.create({
+    const sub = await this.repo.create({
       tenantId: input.tenantId,
       status: SubscriptionStatus.trialing,
       trialEndsAt,
       tx: input.tx,
     });
+    await this.audit.record({
+      action: AuditActions.SUBSCRIPTION_TRIAL_STARTED,
+      tenantId: input.tenantId,
+      targetType: 'subscription',
+      targetId: sub.id,
+      diff: { trialEndsAt: trialEndsAt.toISOString() },
+    });
+    return sub;
   }
 
   async getSubscription(tenantId: string): Promise<SubscriptionView> {
@@ -98,6 +109,23 @@ export class BillingService {
         toStatus: mappedStatus,
         mpPreapprovalId: local.mpPreapprovalId,
       });
+      const action =
+        mappedStatus === SubscriptionStatus.active
+          ? AuditActions.SUBSCRIPTION_ACTIVATED
+          : mappedStatus === SubscriptionStatus.past_due
+            ? AuditActions.SUBSCRIPTION_PAST_DUE
+            : mappedStatus === SubscriptionStatus.cancelled
+              ? AuditActions.SUBSCRIPTION_CANCELLED
+              : null;
+      if (action) {
+        await this.audit.record({
+          action,
+          tenantId: local.tenantId,
+          targetType: 'subscription',
+          targetId: local.id,
+          diff: { fromStatus: local.status, toStatus: mappedStatus },
+        });
+      }
     }
   }
 
@@ -124,6 +152,13 @@ export class BillingService {
       fromStatus: sub.status,
       toStatus: 'cancelled',
       mpPreapprovalId: sub.mpPreapprovalId,
+    });
+    await this.audit.record({
+      action: AuditActions.SUBSCRIPTION_CANCELLED,
+      tenantId,
+      targetType: 'subscription',
+      targetId: sub.id,
+      diff: { fromStatus: sub.status, toStatus: 'cancelled', reason: 'owner_cancelled' },
     });
   }
 
@@ -169,6 +204,14 @@ export class BillingService {
       event: 'subscription.checkout_created',
       tenantId: input.tenantId,
       mpPreapprovalId: created.preapprovalId,
+    });
+
+    await this.audit.record({
+      action: AuditActions.SUBSCRIPTION_CHECKOUT_CREATED,
+      tenantId: input.tenantId,
+      targetType: 'subscription',
+      targetId: sub.id,
+      diff: { mpPreapprovalId: created.preapprovalId },
     });
 
     return { initPoint: created.initPoint };
@@ -240,6 +283,20 @@ export class BillingService {
         fromStatus: 'trialing',
         toStatus: 'past_due',
       });
+      await this.audit.record({
+        action: AuditActions.SUBSCRIPTION_TRIAL_EXPIRED,
+        tenantId: sub.tenantId,
+        targetType: 'subscription',
+        targetId: sub.id,
+        diff: { fromStatus: 'trialing', toStatus: 'past_due' },
+      });
+      await this.audit.record({
+        action: AuditActions.SUBSCRIPTION_PAST_DUE,
+        tenantId: sub.tenantId,
+        targetType: 'subscription',
+        targetId: sub.id,
+        diff: { fromStatus: 'trialing', toStatus: 'past_due', reason: 'trial_expired' },
+      });
     }
 
     const graceDays = this.config.get<number>('BILLING_PAST_DUE_GRACE_DAYS') ?? 7;
@@ -256,6 +313,13 @@ export class BillingService {
         fromStatus: 'past_due',
         toStatus: 'cancelled',
         mpPreapprovalId: sub.mpPreapprovalId,
+      });
+      await this.audit.record({
+        action: AuditActions.SUBSCRIPTION_CANCELLED,
+        tenantId: sub.tenantId,
+        targetType: 'subscription',
+        targetId: sub.id,
+        diff: { fromStatus: 'past_due', toStatus: 'cancelled', reason: 'grace_period_expired' },
       });
     }
 
