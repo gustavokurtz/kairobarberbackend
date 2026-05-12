@@ -14,6 +14,7 @@ import { RefreshTokenRepository } from './repositories/refresh-token.repository'
 import { RegisterOwnerDto } from './dto/register-owner.dto';
 import { RESERVED_SLUGS } from './reserved-slugs';
 import { BarberInvitationsService } from 'src/modules/barbers/barber-invitations.service';
+import { CustomersService } from 'src/modules/customers/customers.service';
 
 @Injectable()
 export class AuthService {
@@ -27,6 +28,7 @@ export class AuthService {
     private readonly config: ConfigService,
     @Inject(EMAIL_PROVIDER) private readonly email: EmailProvider,
     private readonly barberInvitations: BarberInvitationsService,
+    private readonly customers: CustomersService,
   ) {}
 
   private async resolveTenantIdFor(userId: string, role: UserRole): Promise<string | undefined> {
@@ -266,5 +268,51 @@ export class AuthService {
       tenantId: invitation.tenantId,
     });
     return { user, tenantId: invitation.tenantId, ...pair };
+  }
+
+  async claimCustomer(input: { token: string; password: string }) {
+    const customer = await this.customers.consumeClaimToken(input.token);
+    if (!customer.email) {
+      throw new DomainException({
+        code: ErrorCodes.CLAIM_TOKEN_INVALID,
+        message: 'Customer sem email registrado.',
+        status: HttpStatus.BAD_REQUEST,
+      });
+    }
+    const existingUser = await this.users.findByEmail(customer.email);
+    if (existingUser) {
+      throw new DomainException({
+        code: ErrorCodes.EMAIL_ALREADY_REGISTERED,
+        message: 'Email já cadastrado. Faça login.',
+        status: HttpStatus.CONFLICT,
+      });
+    }
+    const passwordHash = await this.password.hash(input.password);
+    const user = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.user.create({
+        data: {
+          email: customer.email!,
+          passwordHash,
+          name: customer.name,
+          role: UserRole.customer,
+          emailVerifiedAt: new Date(),
+        },
+      });
+      await tx.customer.update({
+        where: { id: customer.id },
+        data: {
+          userId: u.id,
+          claimTokenHash: null,
+          claimTokenExpiresAt: null,
+        },
+      });
+      return u;
+    });
+    const pair = await this.tokens.issuePair({
+      userId: user.id,
+      role: user.role,
+      tenantId: undefined,
+    });
+    return { user, ...pair };
   }
 }

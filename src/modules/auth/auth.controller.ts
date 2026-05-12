@@ -10,6 +10,7 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AcceptBarberInviteDto } from './dto/accept-barber-invite.dto';
+import { ClaimCustomerDto } from './dto/claim-customer.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -87,6 +88,19 @@ export class AuthController {
     return {
       user: { id: r.user.id, email: r.user.email, name: r.user.name, role: r.user.role },
       tenantId: r.tenantId,
+      accessToken: r.accessToken,
+      refreshToken: r.refreshToken,
+    };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('customers/claim')
+  @HttpCode(HttpStatus.OK)
+  async claimCustomer(@Body() dto: ClaimCustomerDto) {
+    const r = await this.auth.claimCustomer(dto);
+    return {
+      user: { id: r.user.id, email: r.user.email, name: r.user.name, role: r.user.role },
       accessToken: r.accessToken,
       refreshToken: r.refreshToken,
     };
