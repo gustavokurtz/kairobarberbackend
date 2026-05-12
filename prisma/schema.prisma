@@ -39,6 +39,16 @@ enum AppointmentSource {
   admin
 }
 
+enum AiConsultationStatus {
+  queued
+  processing
+  completed
+  generating
+  generated
+  failed
+  expired
+}
+
 model User {
   id              String    @id @default(cuid())
   email           String    @unique
@@ -84,6 +94,7 @@ model Tenant {
   customers         Customer[]
   appointments      Appointment[]
   auditLogs         AuditLog[]
+  aiConsultations   AiConsultation[]
 
   @@index([deletedAt])
 }
@@ -153,6 +164,7 @@ model Barber {
   photos         Photo[]
   invitation     BarberInvitation?
   appointments   Appointment[]
+  aiConsultations AiConsultation[]
 
   @@index([tenantId, deletedAt])
 }
@@ -252,9 +264,10 @@ model Customer {
   updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user         User?         @relation("CustomerUser", fields: [userId], references: [id], onDelete: SetNull)
-  appointments Appointment[]
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user            User?            @relation("CustomerUser", fields: [userId], references: [id], onDelete: SetNull)
+  appointments    Appointment[]
+  aiConsultations AiConsultation[]
 
   @@unique([tenantId, phone], name: "tenant_phone")
   @@index([tenantId, deletedAt])
@@ -306,4 +319,31 @@ model AuditLog {
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([action, createdAt(sort: Desc)])
   @@index([actorUserId, createdAt(sort: Desc)])
+}
+
+model AiConsultation {
+  id                 String               @id @default(cuid())
+  tenantId           String
+  customerId         String?
+  barberId           String?
+  inputPhotoR2Key    String?
+  outputPhotoR2Key   String?
+  analysisJson       Json?
+  status             AiConsultationStatus @default(queued)
+  providerCostCents  Int                  @default(0)
+  viewTokenHash      String               @unique
+  consentAcceptedAt  DateTime
+  expiresAt          DateTime
+  expiredAt          DateTime?
+  errorReason        String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  barber   Barber?   @relation(fields: [barberId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([status, expiresAt])
+  @@index([status, createdAt(sort: Desc)])
 }
