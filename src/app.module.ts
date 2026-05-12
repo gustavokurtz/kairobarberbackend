@@ -4,6 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ConfigModule } from './config/config.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
+import { AuditModule } from './common/audit/audit.module';
 import { RedisModule } from './infra/redis/redis.module';
 import { QueuesModule } from './infra/queues/queues.module';
 import { buildLoggerOptions } from './infra/logger/logger.config';
@@ -33,6 +34,7 @@ import { SubscriptionActiveGuard } from './common/guards/subscription-active.gua
       },
     ]),
     PrismaModule,
+    AuditModule,
     RedisModule,
     QueuesModule,
     NotificationsModule,
