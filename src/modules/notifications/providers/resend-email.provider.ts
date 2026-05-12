@@ -22,10 +22,7 @@ export class ResendEmailProvider implements EmailProvider {
       ...(msg.html ? { html: msg.html } : {}),
     });
     if (error) {
-      this.logger.error(
-        `resend send error to=${msg.to}: ${error.message}`,
-        error instanceof Error ? error.stack : undefined,
-      );
+      this.logger.error(`resend send error to=${msg.to}: ${error.message}`);
       throw new Error(`Resend send failed: ${error.message}`);
     }
     this.logger.debug(`resend send ok id=${data?.id} to=${msg.to}`);
