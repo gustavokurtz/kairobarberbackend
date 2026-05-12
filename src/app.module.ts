@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ConfigModule } from './config/config.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { RedisModule } from './infra/redis/redis.module';
+import { QueuesModule } from './infra/queues/queues.module';
 import { buildLoggerOptions } from './infra/logger/logger.config';
 import { HealthModule } from './modules/health/health.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -31,6 +32,7 @@ import { PublicModule } from './modules/public/public.module';
     ]),
     PrismaModule,
     RedisModule,
+    QueuesModule,
     NotificationsModule,
     StorageModule,
     AuthModule,
