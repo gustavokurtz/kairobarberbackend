@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { BarbersModule } from './modules/barbers/barbers.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { CustomersModule } from './modules/customers/customers.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
     TenantsModule,
     BarbersModule,
     CatalogModule,
+    CustomersModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
