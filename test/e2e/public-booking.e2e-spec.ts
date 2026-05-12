@@ -33,7 +33,7 @@ describe('Storefront pública — booking + cancel ponta a ponta (e2e)', () => {
   });
 
   it('owner configura barbearia → cliente lista, vê disponibilidade, agenda, recebe token, cancela', async () => {
-    const server = app.getHttpServer();
+    const server: Express.Application = app.getHttpServer() as Express.Application;
 
     // 1) Owner cadastrado + tenant
     const reg = await request(server)
@@ -54,7 +54,11 @@ describe('Storefront pública — booking + cancel ponta a ponta (e2e)', () => {
     await request(server)
       .patch('/admin/tenant/business-hours')
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ businessHours: { days: [closedDay, openDay, openDay, openDay, openDay, openDay, closedDay] } })
+      .send({
+        businessHours: {
+          days: [closedDay, openDay, openDay, openDay, openDay, openDay, closedDay],
+        },
+      })
       .expect(200);
 
     // 3) 1 barbeiro, 1 serviço, vínculo
@@ -134,7 +138,7 @@ describe('Storefront pública — booking + cancel ponta a ponta (e2e)', () => {
   });
 
   it('SLOT_TAKEN: segundo cliente no mesmo slot recebe 409', async () => {
-    const server = app.getHttpServer();
+    const server: Express.Application = app.getHttpServer() as Express.Application;
     const startsAt = nextOpenSlotISO(3, 15);
 
     const services = await request(server).get('/public/bb-studio/services').expect(200);
@@ -148,7 +152,7 @@ describe('Storefront pública — booking + cancel ponta a ponta (e2e)', () => {
           serviceId,
           barberId: barberIds[0],
           startsAt,
-          customer: { name: 'A', phone: '+551130001' },
+          customer: { name: 'Ana', phone: '+551130001' },
         }),
       request(server)
         .post('/public/bb-studio/appointments')
@@ -156,7 +160,7 @@ describe('Storefront pública — booking + cancel ponta a ponta (e2e)', () => {
           serviceId,
           barberId: barberIds[0],
           startsAt,
-          customer: { name: 'B', phone: '+551130002' },
+          customer: { name: 'Bruno', phone: '+551130002' },
         }),
     ]);
     const codes = [r1.status, r2.status].sort();

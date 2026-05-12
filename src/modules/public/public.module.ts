@@ -29,6 +29,10 @@ export class PublicModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(PublicTenantMiddleware)
+      .exclude(
+        { path: 'public/appointments/(.*)', method: RequestMethod.ALL },
+        { path: 'public/appointments', method: RequestMethod.ALL },
+      )
       .forRoutes({ path: 'public/:slug/*', method: RequestMethod.ALL });
     consumer
       .apply(PublicTenantMiddleware)
