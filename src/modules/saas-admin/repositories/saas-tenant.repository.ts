@@ -46,6 +46,21 @@ export class SaasTenantRepository {
     return { rows, total };
   }
 
+  setSuspended(id: string, suspendedAt: Date | null) {
+    return this.prisma.tenant.update({
+      where: { id },
+      data: { suspendedAt },
+      select: { id: true, suspendedAt: true },
+    });
+  }
+
+  findById(id: string) {
+    return this.prisma.tenant.findUnique({
+      where: { id },
+      select: { id: true, suspendedAt: true, slug: true },
+    });
+  }
+
   async findOneDetailed(id: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id },
