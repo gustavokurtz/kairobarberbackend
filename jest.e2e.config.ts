@@ -17,6 +17,7 @@ const config: Config = {
     ],
   },
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/test/support/jest-setup.ts'],
   moduleNameMapper: {
     '^src/(.*)$': '<rootDir>/src/$1',
   },
