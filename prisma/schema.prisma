@@ -26,6 +26,19 @@ enum OneTimeTokenPurpose {
   password_reset
 }
 
+enum AppointmentStatus {
+  pending
+  confirmed
+  completed
+  cancelled
+  no_show
+}
+
+enum AppointmentSource {
+  public_storefront
+  admin
+}
+
 model User {
   id              String    @id @default(cuid())
   email           String    @unique
@@ -36,10 +49,11 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  ownedTenant   Tenant?        @relation("TenantOwner")
-  refreshTokens RefreshToken[]
-  oneTimeTokens OneTimeToken[]
-  barberProfile Barber?        @relation("BarberUser")
+  ownedTenant     Tenant?        @relation("TenantOwner")
+  refreshTokens   RefreshToken[]
+  oneTimeTokens   OneTimeToken[]
+  barberProfile   Barber?        @relation("BarberUser")
+  customerProfile Customer?      @relation("CustomerUser")
 }
 
 model Tenant {
@@ -65,6 +79,8 @@ model Tenant {
   barberInvitations BarberInvitation[]
   timeOffs          TimeOff[]
   serviceBarbers    ServiceBarber[]
+  customers         Customer[]
+  appointments      Appointment[]
 
   @@index([deletedAt])
 }
@@ -133,6 +149,7 @@ model Barber {
   serviceBarbers ServiceBarber[]
   photos         Photo[]
   invitation     BarberInvitation?
+  appointments   Appointment[]
 
   @@index([tenantId, deletedAt])
 }
@@ -167,6 +184,7 @@ model Service {
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   serviceBarbers ServiceBarber[]
   photos         Photo[]
+  appointments   Appointment[]
 
   @@index([tenantId, deletedAt])
 }
@@ -216,4 +234,53 @@ model BarberInvitation {
 
   @@index([tenantId])
   @@index([email])
+}
+
+model Customer {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  name                String
+  phone               String
+  email               String?
+  userId              String?   @unique
+  claimTokenHash      String?   @unique
+  claimTokenExpiresAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User?         @relation("CustomerUser", fields: [userId], references: [id], onDelete: SetNull)
+  appointments Appointment[]
+
+  @@unique([tenantId, phone], name: "tenant_phone")
+  @@index([tenantId, deletedAt])
+}
+
+model Appointment {
+  id                    String            @id @default(cuid())
+  tenantId              String
+  barberId              String
+  serviceId             String
+  customerId            String
+  startsAt              DateTime
+  endsAt                DateTime
+  status                AppointmentStatus @default(pending)
+  priceCentsSnapshot    Int
+  durationMinSnapshot   Int
+  source                AppointmentSource
+  cancellationTokenHash String            @unique
+  cancellationReason    String?
+  cancelledAt           DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  barber   Barber   @relation(fields: [barberId], references: [id], onDelete: Restrict)
+  service  Service  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, barberId, startsAt])
+  @@index([tenantId, customerId, startsAt(sort: Desc)])
+  @@index([tenantId, status, startsAt])
 }
