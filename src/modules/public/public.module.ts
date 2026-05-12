@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { PublicTenantMiddleware } from 'src/common/middleware/public-tenant.middleware';
+import { AiVisagismModule } from 'src/modules/ai-visagism/ai-visagism.module';
 import { BarbersModule } from 'src/modules/barbers/barbers.module';
 import { CatalogModule } from 'src/modules/catalog/catalog.module';
 import { CustomersModule } from 'src/modules/customers/customers.module';
@@ -18,6 +19,7 @@ import { PublicCatalogController } from './public-catalog.controller';
     CustomersModule,
     SchedulingModule,
     NotificationsModule,
+    AiVisagismModule,
   ],
   controllers: [
     PublicCatalogController,
@@ -32,6 +34,7 @@ export class PublicModule implements NestModule {
       .exclude(
         { path: 'public/appointments/(.*)', method: RequestMethod.ALL },
         { path: 'public/appointments', method: RequestMethod.ALL },
+        { path: 'public/ai/visagism/(.*)', method: RequestMethod.ALL },
       )
       .forRoutes({ path: 'public/:slug/*', method: RequestMethod.ALL });
     consumer

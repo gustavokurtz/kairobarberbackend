@@ -19,6 +19,7 @@ import { CustomersModule } from './modules/customers/customers.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { PublicModule } from './modules/public/public.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { AiVisagismModule } from './modules/ai-visagism/ai-visagism.module';
 import { SaasAdminModule } from './modules/saas-admin/saas-admin.module';
 import { SubscriptionActiveGuard } from './common/guards/subscription-active.guard';
 
@@ -48,6 +49,7 @@ import { SubscriptionActiveGuard } from './common/guards/subscription-active.gua
     SchedulingModule,
     PublicModule,
     BillingModule,
+    AiVisagismModule,
     SaasAdminModule,
     HealthModule,
   ],

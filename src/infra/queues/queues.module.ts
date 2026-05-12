@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
-import { QUEUE_BILLING } from './queue-names';
+import { QUEUE_AI_VISAGISM, QUEUE_BILLING } from './queue-names';
 
 @Module({
   imports: [
@@ -11,7 +11,7 @@ import { QUEUE_BILLING } from './queue-names';
       }),
       inject: [ConfigService],
     }),
-    BullModule.registerQueue({ name: QUEUE_BILLING }),
+    BullModule.registerQueue({ name: QUEUE_BILLING }, { name: QUEUE_AI_VISAGISM }),
   ],
   exports: [BullModule],
 })
