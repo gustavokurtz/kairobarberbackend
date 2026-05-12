@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { STORAGE_PROVIDER } from './storage.provider';
 import { ConsoleStorageProvider } from './providers/console-storage.provider';
+import { R2StorageProvider } from './providers/r2-storage.provider';
 
 @Global()
 @Module({
@@ -11,7 +12,7 @@ import { ConsoleStorageProvider } from './providers/console-storage.provider';
       useFactory: (cfg: ConfigService) => {
         const provider = cfg.get<string>('STORAGE_PROVIDER');
         if (provider === 'console') return new ConsoleStorageProvider();
-        // R2 será adicionado na Task 12
+        if (provider === 'r2') return new R2StorageProvider(cfg);
         throw new Error(`Unsupported STORAGE_PROVIDER: ${provider}`);
       },
       inject: [ConfigService],
