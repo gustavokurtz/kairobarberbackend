@@ -1,6 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OneTimeTokenPurpose, SubscriptionStatus, UserRole } from '@prisma/client';
+import { OneTimeTokenPurpose, UserRole } from '@prisma/client';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
 import { DomainException } from 'src/common/exceptions/domain.exception';
 import { ErrorCodes } from 'src/common/exceptions/error-codes';
@@ -15,6 +15,7 @@ import { RegisterOwnerDto } from './dto/register-owner.dto';
 import { RESERVED_SLUGS } from './reserved-slugs';
 import { BarberInvitationsService } from 'src/modules/barbers/barber-invitations.service';
 import { CustomersService } from 'src/modules/customers/customers.service';
+import { BillingService } from 'src/modules/billing/billing.service';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +30,7 @@ export class AuthService {
     @Inject(EMAIL_PROVIDER) private readonly email: EmailProvider,
     private readonly barberInvitations: BarberInvitationsService,
     private readonly customers: CustomersService,
+    private readonly billing: BillingService,
   ) {}
 
   private async resolveTenantIdFor(userId: string, role: UserRole): Promise<string | undefined> {
@@ -80,13 +82,7 @@ export class AuthService {
       const tenant = await tx.tenant.create({
         data: { slug: dto.slug, name: dto.tenantName, ownerUserId: user.id },
       });
-      await tx.subscription.create({
-        data: {
-          tenantId: tenant.id,
-          status: SubscriptionStatus.trialing,
-          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-        },
-      });
+      await this.billing.startTrial({ tenantId: tenant.id, tx });
       return { user, tenant };
     });
 

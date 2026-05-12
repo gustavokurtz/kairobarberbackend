@@ -12,9 +12,10 @@ import { OneTimeTokenRepository } from './repositories/one-time-token.repository
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { BarbersModule } from 'src/modules/barbers/barbers.module';
 import { CustomersModule } from 'src/modules/customers/customers.module';
+import { BillingModule } from 'src/modules/billing/billing.module';
 
 @Module({
-  imports: [JwtModule.register({}), BarbersModule, CustomersModule],
+  imports: [JwtModule.register({}), BarbersModule, CustomersModule, BillingModule],
   controllers: [AuthController],
   providers: [
     AuthService,
