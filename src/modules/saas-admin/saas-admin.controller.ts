@@ -15,16 +15,25 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import type { AuthenticatedUser } from 'src/common/types/request-context';
 import { ListTenantsQueryDto } from './dto/list-tenants-query.dto';
 import { SaasTenantsService } from './services/saas-tenants.service';
+import { SaasMetricsService } from './services/saas-metrics.service';
 
 @Controller('saas')
 @UseGuards(RolesGuard)
 @Roles(UserRole.saas_owner)
 export class SaasAdminController {
-  constructor(private readonly tenants: SaasTenantsService) {}
+  constructor(
+    private readonly tenants: SaasTenantsService,
+    private readonly metrics: SaasMetricsService,
+  ) {}
 
   @Get('ping')
   ping() {
     return { ok: true };
+  }
+
+  @Get('dashboard')
+  dashboard() {
+    return this.metrics.dashboard();
   }
 
   @Get('tenants')
