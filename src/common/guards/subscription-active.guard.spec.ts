@@ -2,6 +2,7 @@ import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { SubscriptionActiveGuard } from './subscription-active.guard';
 import { ALLOW_INACTIVE_SUBSCRIPTION_KEY } from 'src/modules/billing/billing.constants';
+import { PrismaService } from 'src/infra/prisma/prisma.service';
 
 function mkContext(opts: {
   user?: { tenantId?: string };
@@ -21,12 +22,21 @@ describe('SubscriptionActiveGuard', () => {
   const reflector = new Reflector();
   let repo: { findByTenantId: jest.Mock };
   let tokens: { verifyAccess: jest.Mock };
+  let prisma: { tenant: { findUnique: jest.Mock } };
   let guard: SubscriptionActiveGuard;
 
   beforeEach(() => {
     repo = { findByTenantId: jest.fn() };
     tokens = { verifyAccess: jest.fn() };
-    guard = new SubscriptionActiveGuard(reflector, repo as never, tokens as never);
+    prisma = {
+      tenant: { findUnique: jest.fn().mockResolvedValue({ suspendedAt: null }) },
+    };
+    guard = new SubscriptionActiveGuard(
+      reflector,
+      repo as never,
+      tokens as never,
+      prisma as unknown as PrismaService,
+    );
   });
 
   afterEach(() => {
@@ -63,6 +73,13 @@ describe('SubscriptionActiveGuard', () => {
     repo.findByTenantId.mockResolvedValue(null);
     await expect(guard.canActivate(mkContext({ user: { tenantId: 't1' } }))).rejects.toMatchObject({
       opts: { code: 'SUBSCRIPTION_NOT_FOUND' },
+    });
+  });
+
+  it('lança TENANT_SUSPENDED quando suspendedAt != null', async () => {
+    prisma.tenant.findUnique.mockResolvedValueOnce({ suspendedAt: new Date() });
+    await expect(guard.canActivate(mkContext({ user: { tenantId: 't1' } }))).rejects.toMatchObject({
+      opts: { code: 'TENANT_SUSPENDED', status: 402 },
     });
   });
 });

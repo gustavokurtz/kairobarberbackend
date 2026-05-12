@@ -5,6 +5,7 @@ import { ErrorCodes } from 'src/common/exceptions/error-codes';
 import { ALLOW_INACTIVE_SUBSCRIPTION_KEY } from 'src/modules/billing/billing.constants';
 import { SubscriptionRepository } from 'src/modules/billing/repositories/subscription.repository';
 import { TokensService } from 'src/modules/auth/tokens.service';
+import { PrismaService } from 'src/infra/prisma/prisma.service';
 
 @Injectable()
 export class SubscriptionActiveGuard implements CanActivate {
@@ -12,6 +13,7 @@ export class SubscriptionActiveGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly subscriptions: SubscriptionRepository,
     private readonly tokens: TokensService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -42,6 +44,18 @@ export class SubscriptionActiveGuard implements CanActivate {
       [ctx.getHandler(), ctx.getClass()],
     );
     if (allowInactive) return true;
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { suspendedAt: true },
+    });
+    if (tenant?.suspendedAt) {
+      throw new DomainException({
+        code: ErrorCodes.TENANT_SUSPENDED,
+        message: 'Tenant suspenso pelo administrador. Contate o suporte.',
+        status: HttpStatus.PAYMENT_REQUIRED,
+      });
+    }
 
     const sub = await this.subscriptions.findByTenantId(tenantId);
     if (!sub) {

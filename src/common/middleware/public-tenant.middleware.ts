@@ -41,6 +41,15 @@ export class PublicTenantMiddleware implements NestMiddleware {
         }),
       );
     }
+    if (tenant.suspendedAt) {
+      return next(
+        new DomainException({
+          code: ErrorCodes.TENANT_NOT_FOUND,
+          message: 'Barbearia não encontrada.',
+          status: HttpStatus.NOT_FOUND,
+        }),
+      );
+    }
     const store = tenantAls.getStore();
     if (store) store.tenantId = tenant.id;
     next();

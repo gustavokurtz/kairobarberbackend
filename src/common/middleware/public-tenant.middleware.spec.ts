@@ -6,6 +6,7 @@ type FindFirstReturn = {
   id: string;
   slug: string;
   deletedAt: Date | null;
+  suspendedAt?: Date | null;
   subscription: { status: string } | null;
 } | null;
 
@@ -72,5 +73,23 @@ describe('PublicTenantMiddleware', () => {
       });
     });
     expect(err).toMatchObject({ status: 404 });
+  });
+
+  it('retorna 404 quando tenant está suspended (suspendedAt != null)', async () => {
+    const mw = new PublicTenantMiddleware(
+      buildPrisma({
+        id: 't1',
+        slug: 'mybarber',
+        deletedAt: null,
+        suspendedAt: new Date(),
+        subscription: { status: 'active' },
+      }),
+    );
+    const err = await new Promise<unknown>((resolve) => {
+      tenantAls.run({}, () => {
+        void mw.use(makeReq('mybarber'), makeRes(), (e?: unknown) => resolve(e));
+      });
+    });
+    expect(err).toMatchObject({ opts: { code: 'TENANT_NOT_FOUND', status: 404 } });
   });
 });
