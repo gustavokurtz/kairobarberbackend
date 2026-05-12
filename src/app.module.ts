@@ -17,6 +17,8 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { PublicModule } from './modules/public/public.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { SubscriptionActiveGuard } from './common/guards/subscription-active.guard';
 
 @Module({
   imports: [
@@ -42,8 +44,12 @@ import { PublicModule } from './modules/public/public.module';
     CustomersModule,
     SchedulingModule,
     PublicModule,
+    BillingModule,
     HealthModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: SubscriptionActiveGuard },
+  ],
 })
 export class AppModule {}
