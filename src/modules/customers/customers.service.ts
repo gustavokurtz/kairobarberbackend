@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { createHash, randomBytes } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { DomainException } from 'src/common/exceptions/domain.exception';
 import { ErrorCodes } from 'src/common/exceptions/error-codes';
 import { CustomerRepository } from './repositories/customer.repository';
@@ -65,12 +66,13 @@ export class CustomersService {
       claimTokenExpiresAt = new Date(Date.now() + CLAIM_TOKEN_TTL_DAYS * 24 * 3600 * 1000);
     }
 
-    const customer = await this.repo.create({
+    const data: Omit<Prisma.CustomerUncheckedCreateInput, 'tenantId'> = {
       name: input.name,
       phone: input.phone,
       email: input.email ?? null,
       ...(claimTokenHash ? { claimTokenHash, claimTokenExpiresAt } : {}),
-    } as never);
+    };
+    const customer = await this.repo.create(data as Prisma.CustomerUncheckedCreateInput);
 
     return { customer, claimPlainToken };
   }

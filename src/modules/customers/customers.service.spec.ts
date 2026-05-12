@@ -111,3 +111,65 @@ describe('CustomersService.findOrCreateByPhone', () => {
     expect(repo.update).toHaveBeenCalledWith('cx', { name: 'João Silva', email: 'novo@x.com' });
   });
 });
+
+describe('CustomersService.consumeClaimToken', () => {
+  const futureExpiry = new Date(Date.now() + 60_000);
+  const pastExpiry = new Date(Date.now() - 60_000);
+
+  it('throws CLAIM_TOKEN_INVALID (400) when token hash not found', async () => {
+    const repo = buildRepo();
+    repo.findByClaimTokenHash.mockResolvedValue(null);
+
+    const svc = new CustomersService(repo);
+    await expect(svc.consumeClaimToken('any-plain-token')).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'CLAIM_TOKEN_INVALID' }),
+      status: 400,
+    });
+  });
+
+  it('throws CLAIM_TOKEN_INVALID (400) when token expired', async () => {
+    const repo = buildRepo();
+    repo.findByClaimTokenHash.mockResolvedValue({
+      id: 'cx',
+      userId: null,
+      claimTokenExpiresAt: pastExpiry,
+    } as any);
+
+    const svc = new CustomersService(repo);
+    await expect(svc.consumeClaimToken('plain')).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'CLAIM_TOKEN_INVALID' }),
+      status: 400,
+    });
+  });
+
+  it('throws CLAIM_TOKEN_INVALID (409) when customer already claimed (userId set)', async () => {
+    const repo = buildRepo();
+    repo.findByClaimTokenHash.mockResolvedValue({
+      id: 'cx',
+      userId: 'u1',
+      claimTokenExpiresAt: futureExpiry,
+    } as any);
+
+    const svc = new CustomersService(repo);
+    await expect(svc.consumeClaimToken('plain')).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'CLAIM_TOKEN_INVALID' }),
+      status: 409,
+    });
+  });
+
+  it('returns the customer when token valid and not yet claimed', async () => {
+    const repo = buildRepo();
+    const customer = {
+      id: 'cx',
+      userId: null,
+      claimTokenExpiresAt: futureExpiry,
+      name: 'João',
+      email: 'joao@x.com',
+    };
+    repo.findByClaimTokenHash.mockResolvedValue(customer as any);
+
+    const svc = new CustomersService(repo);
+    const out = await svc.consumeClaimToken('plain');
+    expect(out).toBe(customer);
+  });
+});
