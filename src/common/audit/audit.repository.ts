@@ -7,8 +7,9 @@ import { AuditQuery, AuditRecordInput } from './audit.types';
 export class AuditRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  insert(input: AuditRecordInput): Promise<AuditLog> {
-    return this.prisma.auditLog.create({
+  insert(input: AuditRecordInput, tx?: Prisma.TransactionClient): Promise<AuditLog> {
+    const client = tx ?? this.prisma;
+    return client.auditLog.create({
       data: {
         action: input.action,
         tenantId: input.tenantId ?? null,

@@ -25,7 +25,18 @@ describe('AuditService', () => {
         action: 'subscription.activated',
         tenantId: 't1',
       }),
+      undefined,
     );
+  });
+
+  it('encaminha tx opcional para o repository (audit dentro da transação do caller)', async () => {
+    repo.insert.mockResolvedValueOnce({} as never);
+    const fakeTx = { $kind: 'tx' } as never;
+    await service.record(
+      { action: AuditActions.SUBSCRIPTION_TRIAL_STARTED, tenantId: 't1' },
+      fakeTx,
+    );
+    expect(repo.insert).toHaveBeenCalledWith(expect.any(Object), fakeTx);
   });
 
   it('engole exception do repository e loga warn (audit não quebra negócio)', async () => {

@@ -52,13 +52,16 @@ export class BillingService {
       trialEndsAt,
       tx: input.tx,
     });
-    await this.audit.record({
-      action: AuditActions.SUBSCRIPTION_TRIAL_STARTED,
-      tenantId: input.tenantId,
-      targetType: 'subscription',
-      targetId: sub.id,
-      diff: { trialEndsAt: trialEndsAt.toISOString() },
-    });
+    await this.audit.record(
+      {
+        action: AuditActions.SUBSCRIPTION_TRIAL_STARTED,
+        tenantId: input.tenantId,
+        targetType: 'subscription',
+        targetId: sub.id,
+        diff: { trialEndsAt: trialEndsAt.toISOString() },
+      },
+      input.tx,
+    );
     return sub;
   }
 

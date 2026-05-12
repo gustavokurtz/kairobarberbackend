@@ -93,7 +93,15 @@ describe('BillingService — core', () => {
           tenantId: 't1',
           targetId: 's1',
         }),
+        undefined,
       );
+    });
+
+    it('encaminha tx para audit.record quando startTrial roda dentro de transação', async () => {
+      repo.create.mockResolvedValueOnce({ id: 's1' } as never);
+      const tx = { $kind: 'tx' } as never;
+      await svc.startTrial({ tenantId: 't1', tx });
+      expect(audit.record).toHaveBeenCalledWith(expect.any(Object), tx);
     });
   });
 

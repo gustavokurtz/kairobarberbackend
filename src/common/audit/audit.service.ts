@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { AuditRepository } from './audit.repository';
 import { AuditRecordInput } from './audit.types';
 
@@ -9,9 +10,9 @@ export class AuditService {
     private readonly logger: Logger,
   ) {}
 
-  async record(input: AuditRecordInput): Promise<void> {
+  async record(input: AuditRecordInput, tx?: Prisma.TransactionClient): Promise<void> {
     try {
-      await this.repo.insert(input);
+      await this.repo.insert(input, tx);
     } catch (err) {
       this.logger.warn({
         event: 'audit.record_failed',
