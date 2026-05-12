@@ -7,6 +7,7 @@ import { PrismaModule } from './infra/prisma/prisma.module';
 import { buildLoggerOptions } from './infra/logger/logger.config';
 import { HealthModule } from './modules/health/health.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { StorageModule } from './modules/storage/storage.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 
@@ -24,6 +25,7 @@ import { TenantsModule } from './modules/tenants/tenants.module';
     ]),
     PrismaModule,
     NotificationsModule,
+    StorageModule,
     AuthModule,
     TenantsModule,
     HealthModule,

@@ -24,6 +24,28 @@ export const envValidationSchema = Joi.object({
   THROTTLE_TTL: Joi.number().integer().min(1).default(60),
   THROTTLE_LIMIT: Joi.number().integer().min(1).default(10),
 
+  STORAGE_PROVIDER: Joi.string().valid('console', 'r2').default('console'),
+  R2_ACCOUNT_ID: Joi.string().when('STORAGE_PROVIDER', {
+    is: 'r2',
+    then: Joi.required(),
+    otherwise: Joi.optional().allow(''),
+  }),
+  R2_ACCESS_KEY_ID: Joi.string().when('STORAGE_PROVIDER', {
+    is: 'r2',
+    then: Joi.required(),
+    otherwise: Joi.optional().allow(''),
+  }),
+  R2_SECRET_ACCESS_KEY: Joi.string().when('STORAGE_PROVIDER', {
+    is: 'r2',
+    then: Joi.required(),
+    otherwise: Joi.optional().allow(''),
+  }),
+  R2_BUCKET: Joi.string().when('STORAGE_PROVIDER', {
+    is: 'r2',
+    then: Joi.required(),
+    otherwise: Joi.optional().allow(''),
+  }),
+
   SENTRY_DSN: Joi.string().uri().optional().allow(''),
 });
 
@@ -43,5 +65,10 @@ export type AppEnv = {
   PASSWORD_HASH_MEMORY_COST: number;
   THROTTLE_TTL: number;
   THROTTLE_LIMIT: number;
+  STORAGE_PROVIDER: 'console' | 'r2';
+  R2_ACCOUNT_ID?: string;
+  R2_ACCESS_KEY_ID?: string;
+  R2_SECRET_ACCESS_KEY?: string;
+  R2_BUCKET?: string;
   SENTRY_DSN?: string;
 };
