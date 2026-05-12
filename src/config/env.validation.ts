@@ -84,6 +84,12 @@ export const envValidationSchema = Joi.object({
   MP_API_BASE_URL: Joi.string().uri().default('https://api.mercadopago.com'),
 
   BILLING_NOW_OVERRIDE_MS: Joi.number().integer().optional(),
+
+  // SaaS owner bootstrap (lido apenas pelo seed)
+  SAAS_OWNER_EMAIL: Joi.string().email({ tlds: { allow: false } }).optional(),
+  SAAS_OWNER_PASSWORD: Joi.string().min(10).optional(),
+  SAAS_OWNER_NAME: Joi.string().min(2).max(80).optional(),
+  ALLOW_PROD_SEED: Joi.string().valid('true', 'false').optional(),
 });
 
 export type AppEnv = {
@@ -123,4 +129,8 @@ export type AppEnv = {
   MP_RETURN_URL?: string;
   MP_API_BASE_URL: string;
   BILLING_NOW_OVERRIDE_MS?: number;
+  SAAS_OWNER_EMAIL?: string;
+  SAAS_OWNER_PASSWORD?: string;
+  SAAS_OWNER_NAME?: string;
+  ALLOW_PROD_SEED?: 'true' | 'false';
 };
