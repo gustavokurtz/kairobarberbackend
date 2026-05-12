@@ -14,7 +14,7 @@ Backend do SaaS KairoBarber (multi-tenant, NestJS + Prisma + Postgres).
 nvm use
 npm install
 cp .env.example .env
-docker compose up -d postgres
+docker compose up -d postgres redis
 npx prisma migrate dev
 npm run start:dev
 ```
@@ -57,6 +57,15 @@ Serviços, galeria de fotos (R2 + console), horários de funcionamento, exceçõ
 - Email de confirmação via Resend (ou console em dev)
 - Cancelamento por magic link com janela mínima de 2h
 - Race-condition guard via `pg_advisory_xact_lock` + `SELECT FOR UPDATE`
+
+### Fase 4 — Billing (Mercado Pago via polling) ✅
+- `/admin/billing/(subscription|checkout|sync|cancel|invoices)`
+- Provider abstraído (`BillingProvider`): `ConsoleBillingProvider` em dev, `MercadopagoBillingProvider` em prod
+- Crons BullMQ:
+  - `billing-sync` (default `0 6,18 * * *` UTC) — polling de estado por status
+  - `trial-check` (default `15 6 * * *` UTC) — `trialing → past_due` e `past_due → cancelled` após graça
+- Gating: tenant `cancelled` ganha 402 em `/admin/*` (exceto billing) e 404 na storefront
+- Sem webhook MP — sync on-demand via `/admin/billing/sync` resolve 95% dos casos pós-checkout
 
 ## Deploy
 

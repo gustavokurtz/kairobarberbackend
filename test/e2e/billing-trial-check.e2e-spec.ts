@@ -37,8 +37,8 @@ describe('Billing — trial-check (e2e)', () => {
   afterEach(() => resetBillingClock());
 
   it('trial expirado → past_due e past_due > 7d → cancelled', async () => {
-    const server = app.getHttpServer();
-    const prisma = app.get(PrismaService);
+    const server = app.getHttpServer() as unknown as import('http').Server;
+    const prisma: PrismaService = app.get(PrismaService);
 
     await request(server)
       .post('/auth/register/owner')

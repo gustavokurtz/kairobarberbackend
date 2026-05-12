@@ -27,8 +27,8 @@ describe('Billing — gating admin + storefront (e2e)', () => {
   });
 
   it('cancelled bloqueia /admin/services (402) mas libera /admin/billing/* e bloqueia storefront (404)', async () => {
-    const server = app.getHttpServer();
-    const prisma = app.get(PrismaService);
+    const server = app.getHttpServer() as unknown as import('http').Server;
+    const prisma: PrismaService = app.get(PrismaService);
 
     const reg = await request(server)
       .post('/auth/register/owner')
@@ -86,8 +86,8 @@ describe('Billing — gating admin + storefront (e2e)', () => {
   });
 
   it('past_due NÃO bloqueia admin nem storefront (gating só dispara em cancelled)', async () => {
-    const server = app.getHttpServer();
-    const prisma = app.get(PrismaService);
+    const server = app.getHttpServer() as unknown as import('http').Server;
+    const prisma: PrismaService = app.get(PrismaService);
 
     const reg = await request(server)
       .post('/auth/register/owner')

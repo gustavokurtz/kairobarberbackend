@@ -15,12 +15,10 @@ export class SubscriptionActiveGuard implements CanActivate {
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    const req = ctx
-      .switchToHttp()
-      .getRequest<{
-        user?: { tenantId?: string };
-        headers: Record<string, string | undefined>;
-      }>();
+    const req = ctx.switchToHttp().getRequest<{
+      user?: { tenantId?: string };
+      headers: Record<string, string | undefined>;
+    }>();
 
     // APP_GUARDs from different modules don't have a deterministic cross-module
     // execution order, so JwtAuthGuard may not have populated req.user yet.

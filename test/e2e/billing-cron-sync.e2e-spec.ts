@@ -33,8 +33,8 @@ describe('Billing — cron billing-sync (e2e)', () => {
   });
 
   it('cron sincroniza mudança remota authorized → paused → cancelled', async () => {
-    const server = app.getHttpServer();
-    const prisma = app.get(PrismaService);
+    const server = app.getHttpServer() as unknown as import('http').Server;
+    const prisma: PrismaService = app.get(PrismaService);
 
     const reg = await request(server)
       .post('/auth/register/owner')

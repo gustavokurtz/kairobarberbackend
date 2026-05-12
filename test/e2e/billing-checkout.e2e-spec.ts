@@ -31,7 +31,7 @@ describe('Billing — checkout → sync → active (e2e)', () => {
   });
 
   it('barbeiro registra → checkout → sync simulado → status active + currentPeriodEnd', async () => {
-    const server = app.getHttpServer();
+    const server = app.getHttpServer() as unknown as import('http').Server;
 
     const reg = await request(server)
       .post('/auth/register/owner')

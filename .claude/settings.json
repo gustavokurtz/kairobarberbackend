@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f .claude/run-next ] && rm .claude/run-next && claude --dangerously-skip-permissions 'Tô retomando o KairoBarber. Spec em docs/superpowers/specs/2026-05-11-kairobarber-backend-design.md. Terminamos as Tasks 1-27. Gera o plano da Fase 5 e Fase 6 e execute na main. Eu estou dormindo entao tente tomar as decisoes como um agente autonomo'"
+          }
+        ]
+      }
+    ]
+  }
+}
