@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Post,
   Query,
@@ -37,6 +38,7 @@ export class PublicAiVisagismController {
   // POST /public/:slug/ai/visagism/consultations  (multipart, field "photo")
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @Post('public/:slug/ai/visagism/consultations')
+  @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(FileInterceptor('photo'))
   async create(
     @Param('slug') _slug: string,
