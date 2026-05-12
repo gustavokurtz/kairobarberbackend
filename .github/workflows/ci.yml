@@ -42,22 +42,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
-      - run: npx prisma generate
+      - run: pnpm exec prisma generate
 
       - name: Apply migrations (no-op until Fase 1)
-        run: npx prisma migrate deploy
+        run: pnpm exec prisma migrate deploy
 
-      - run: npm run lint
+      - run: pnpm lint
 
-      - run: npm test -- --passWithNoTests
+      - run: pnpm test -- --passWithNoTests
 
-      - run: npm run test:e2e -- --passWithNoTests
+      - run: pnpm test:e2e -- --passWithNoTests
 
-      - run: npm run build
+      - run: pnpm build

@@ -1,25 +1,28 @@
 # syntax=docker/dockerfile:1.6
 
-FROM node:20-alpine AS deps
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
 
-FROM node:20-alpine AS build
-WORKDIR /app
+FROM base AS deps
+COPY package.json pnpm-lock.yaml .npmrc ./
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate
-RUN npm run build
+RUN pnpm exec prisma generate
+RUN pnpm build
 
-FROM node:20-alpine AS runtime
-WORKDIR /app
+FROM base AS runtime
 ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
-COPY package*.json ./
-RUN npm prune --omit=dev && npx prisma generate
+COPY package.json pnpm-lock.yaml .npmrc ./
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --prod --frozen-lockfile \
+    && pnpm exec prisma generate
 USER node
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main.js"]

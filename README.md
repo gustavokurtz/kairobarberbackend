@@ -6,34 +6,35 @@ Backend do SaaS KairoBarber (multi-tenant, NestJS + Prisma + Postgres).
 
 - Node 20 (use `.nvmrc`: `nvm use`)
 - Docker + Docker Compose
-- npm 10+
+- pnpm 10+ (habilite via `corepack enable` ou `npm i -g pnpm@10`)
 
 ## Setup local
 
 ```bash
 nvm use
-npm install
+corepack enable        # garante o pnpm da versão fixada em packageManager
+pnpm install
 cp .env.example .env
 docker compose up -d postgres redis
-npx prisma migrate dev
-npm run start:dev
+pnpm exec prisma migrate dev
+pnpm start:dev
 ```
 
 API sobe em `http://localhost:3000`. Healthcheck: `GET /health/ready`.
 
 ## Comandos úteis
 
-| Comando                       | Descrição                                  |
-|-------------------------------|---------------------------------------------|
-| `npm run start:dev`           | Dev server com watch                       |
-| `npm run build`               | Build de produção                          |
-| `npm test`                    | Testes unitários                           |
-| `npm run test:cov`            | Testes com cobertura                       |
-| `npm run test:e2e`            | Testes E2E (precisa Postgres)              |
-| `npm run lint`                | ESLint                                     |
-| `npm run format`              | Prettier                                   |
-| `npm run prisma:migrate:dev`  | Aplicar/gerar migration (dev)              |
-| `npm run prisma:studio`       | Prisma Studio (GUI do banco)               |
+| Comando                   | Descrição                                  |
+|---------------------------|---------------------------------------------|
+| `pnpm start:dev`          | Dev server com watch                       |
+| `pnpm build`              | Build de produção                          |
+| `pnpm test`               | Testes unitários                           |
+| `pnpm test:cov`           | Testes com cobertura                       |
+| `pnpm test:e2e`           | Testes E2E (precisa Postgres)              |
+| `pnpm lint`               | ESLint                                     |
+| `pnpm format`             | Prettier                                   |
+| `pnpm prisma:migrate:dev` | Aplicar/gerar migration (dev)              |
+| `pnpm prisma:studio`      | Prisma Studio (GUI do banco)               |
 
 ## Estrutura
 
@@ -77,7 +78,7 @@ Serviços, galeria de fotos (R2 + console), horários de funcionamento, exceçõ
   - `GET /saas/audit-log` — filtros por tenant/actor/action/janela de tempo
 - `AuditLog` persistente (append-only): transições de subscription da Fase 4 + ações administrativas
 - Suspensão administrativa: storefront → 404 (não vaza), `/admin/*` → 402 `TENANT_SUSPENDED` (bypass via `@AllowInactiveSubscription()`)
-- Bootstrap do `saas_owner`: `npm run prisma:seed` (idempotente, bloqueado em prod sem `ALLOW_PROD_SEED=true`)
+- Bootstrap do `saas_owner`: `pnpm prisma:seed` (idempotente, bloqueado em prod sem `ALLOW_PROD_SEED=true`)
 
 ### Fase 6 — IA Visagismo ✅
 Fase 6: módulo `ai-visagism` com `/public/{slug}/ai/visagism/consultations` (multipart upload), polling em `/public/ai/visagism/consultations/{id}` e geração opt-in via gpt-image-1. Análise estruturada via AI SDK + Groq + Llama 4 Scout 17B. Cota mensal 100/tenant (`Subscription.aiQuotaUsedThisMonth`). Retenção LGPD 7 dias com cron `ai-photo-cleanup`. Reset mensal de cota via cron. Custo por consulta rastreado. Provider abstraído (`VisagismProvider`) para troca futura.
