@@ -45,6 +45,117 @@ export class AppointmentsService {
     return this.repo.listForRange(filters);
   }
 
+  private static readonly ALLOWED: Record<AppointmentStatus, AppointmentStatus[]> = {
+    pending: [AppointmentStatus.confirmed, AppointmentStatus.cancelled, AppointmentStatus.no_show],
+    confirmed: [
+      AppointmentStatus.completed,
+      AppointmentStatus.cancelled,
+      AppointmentStatus.no_show,
+    ],
+    completed: [],
+    cancelled: [],
+    no_show: [],
+  };
+
+  private async transition(
+    id: string,
+    target: AppointmentStatus,
+    extra?: Prisma.AppointmentUpdateInput,
+  ) {
+    const current = await this.getById(id);
+    const allowed = AppointmentsService.ALLOWED[current.status];
+    if (!allowed.includes(target)) {
+      throw new DomainException({
+        code: ErrorCodes.APPOINTMENT_TRANSITION_INVALID,
+        message: `Transição ${current.status} → ${target} não permitida.`,
+        status: HttpStatus.CONFLICT,
+      });
+    }
+    return this.repo.updateStatus(id, target, extra);
+  }
+
+  confirm(id: string) {
+    return this.transition(id, AppointmentStatus.confirmed);
+  }
+
+  complete(id: string) {
+    return this.transition(id, AppointmentStatus.completed);
+  }
+
+  cancelByAdmin(id: string, reason?: string) {
+    return this.transition(id, AppointmentStatus.cancelled, {
+      cancelledAt: new Date(),
+      cancellationReason: reason ?? 'Cancelado pelo barbeiro',
+    });
+  }
+
+  markNoShow(id: string) {
+    return this.transition(id, AppointmentStatus.no_show);
+  }
+
+  async reschedule(id: string, newStartsAt: Date) {
+    const apt = await this.getById(id);
+    if (apt.status !== AppointmentStatus.pending && apt.status !== AppointmentStatus.confirmed) {
+      throw new DomainException({
+        code: ErrorCodes.APPOINTMENT_TRANSITION_INVALID,
+        message: 'Só é possível remarcar pending ou confirmed.',
+        status: HttpStatus.CONFLICT,
+      });
+    }
+    if (newStartsAt < this.nowFn()) {
+      throw new DomainException({
+        code: ErrorCodes.APPOINTMENT_SLOT_INVALID,
+        message: 'Novo horário no passado.',
+        status: HttpStatus.BAD_REQUEST,
+      });
+    }
+    const newEndsAt = new Date(newStartsAt.getTime() + apt.durationMinSnapshot * 60 * 1000);
+    return this.prisma.$transaction(async (tx) => {
+      type RawTx = {
+        $queryRawUnsafe: <T>(...args: unknown[]) => Promise<T>;
+        appointment: {
+          update: (args: {
+            where: { id: string };
+            data: Prisma.AppointmentUpdateInput;
+          }) => Promise<unknown>;
+        };
+      };
+      const rawTx = tx as unknown as RawTx;
+      // advisory lock for the barber, same pattern as createInternal
+      await rawTx.$queryRawUnsafe<unknown[]>(
+        `SELECT pg_advisory_xact_lock(hashtext('booking:' || $1::text || ':' || $2::text)::bigint)`,
+        apt.tenantId,
+        apt.barberId,
+      );
+      const overlap = await rawTx.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT id FROM "Appointment"
+         WHERE "tenantId" = $1
+           AND "barberId" = $2
+           AND id <> $3
+           AND status::text IN ${ACTIVE_STATUSES_SQL}
+           AND "startsAt" < $4
+           AND "endsAt"   > $5
+         FOR UPDATE`,
+        apt.tenantId,
+        apt.barberId,
+        id,
+        newEndsAt,
+        newStartsAt,
+      );
+      if (overlap.length > 0) {
+        throw new DomainException({
+          code: ErrorCodes.APPOINTMENT_SLOT_TAKEN,
+          message: 'Novo horário já está ocupado.',
+          status: HttpStatus.CONFLICT,
+        });
+      }
+      return rawTx.appointment.update({
+        where: { id },
+        data: { startsAt: newStartsAt, endsAt: newEndsAt },
+      });
+    });
+  }
+
   async createPublicBooking(tenantId: string, input: PublicBookingInput) {
     return this.createInternal(
       tenantId,

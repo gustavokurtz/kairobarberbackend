@@ -135,3 +135,50 @@ describe('AppointmentsService.createPublicBooking', () => {
     });
   });
 });
+
+describe('AppointmentsService — transitions', () => {
+  function withCurrentStatus(status: AppointmentStatus) {
+    const deps = mockDeps();
+    deps.repo.findById.mockResolvedValue({
+      id: 'apt1',
+      status,
+      startsAt: new Date('2030-05-13T10:00:00Z'),
+      endsAt: new Date('2030-05-13T10:30:00Z'),
+      serviceId: 'srv1',
+      barberId: 'b1',
+      tenantId: 't1',
+      durationMinSnapshot: 30,
+    });
+    deps.repo.updateStatus.mockImplementation((id: string, st: AppointmentStatus) =>
+      Promise.resolve({ id, status: st }),
+    );
+    return deps;
+  }
+
+  it('pending → confirmed', async () => {
+    const deps = withCurrentStatus(AppointmentStatus.pending);
+    const svc = new AppointmentsService(deps.prisma, deps.repo, deps.services, deps.barbers);
+    const out = await svc.confirm('apt1');
+    expect(out.status).toBe(AppointmentStatus.confirmed);
+  });
+
+  it('completed → cancelled é inválido', async () => {
+    const deps = withCurrentStatus(AppointmentStatus.completed);
+    const svc = new AppointmentsService(deps.prisma, deps.repo, deps.services, deps.barbers);
+    await expect(svc.cancelByAdmin('apt1')).rejects.toMatchObject({ status: HttpStatus.CONFLICT });
+  });
+
+  it('confirmed → completed', async () => {
+    const deps = withCurrentStatus(AppointmentStatus.confirmed);
+    const svc = new AppointmentsService(deps.prisma, deps.repo, deps.services, deps.barbers);
+    const out = await svc.complete('apt1');
+    expect(out.status).toBe(AppointmentStatus.completed);
+  });
+
+  it('confirmed → no_show', async () => {
+    const deps = withCurrentStatus(AppointmentStatus.confirmed);
+    const svc = new AppointmentsService(deps.prisma, deps.repo, deps.services, deps.barbers);
+    const out = await svc.markNoShow('apt1');
+    expect(out.status).toBe(AppointmentStatus.no_show);
+  });
+});
