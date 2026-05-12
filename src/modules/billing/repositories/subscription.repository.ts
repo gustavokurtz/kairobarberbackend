@@ -39,6 +39,7 @@ export class SubscriptionRepository {
       mpPreapprovalId: string | null;
       lastSyncedAt: Date | null;
       nextSyncAt: Date | null;
+      updatedAt: Date;
     }>,
   ): Promise<Subscription> {
     return this.prisma.subscription.update({ where: { tenantId }, data: patch });

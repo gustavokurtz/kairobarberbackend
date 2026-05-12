@@ -33,7 +33,7 @@ export class BillingService {
   ) {}
 
   now(): Date {
-    const override = this.config.get<number>('BILLING_NOW_OVERRIDE_MS');
+    const override = process.env.BILLING_NOW_OVERRIDE_MS;
     return override ? new Date(Number(override)) : new Date();
   }
 
@@ -232,6 +232,7 @@ export class BillingService {
       await this.repo.update(sub.tenantId, {
         status: SubscriptionStatus.past_due,
         nextSyncAt: sub.mpPreapprovalId ? new Date(now.getTime() + 2 * 60 * 60 * 1000) : null,
+        updatedAt: now,
       });
       this.logger.log({
         event: 'subscription.trial_expired',
