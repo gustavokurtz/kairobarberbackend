@@ -39,6 +39,25 @@ API sobe em `http://localhost:3000`. Healthcheck: `GET /health/ready`.
 
 Veja [`docs/superpowers/specs/2026-05-11-kairobarber-backend-design.md`](docs/superpowers/specs/2026-05-11-kairobarber-backend-design.md) pro design completo.
 
+## Fases
+
+### Fase 0 — Infra base ✅
+Projeto NestJS + Prisma + Postgres, healthcheck, Docker Compose, CI.
+
+### Fase 1 — Auth & multi-tenant ✅
+JWT (access + refresh), verificação de e-mail, reset de senha, tenants/barbeiros, convites.
+
+### Fase 2 — Catálogo & disponibilidade ✅
+Serviços, galeria de fotos (R2 + console), horários de funcionamento, exceções de agenda.
+
+### Fase 3 — Storefront pública + Agendamento ✅
+- `/public/{slug}/(barbers|services|photos|availability/*|appointments)`
+- `/admin/appointments` (lista, walk-in, confirm/complete/cancel/no-show, reschedule)
+- `/auth/customers/claim` (magic link de cliente)
+- Email de confirmação via Resend (ou console em dev)
+- Cancelamento por magic link com janela mínima de 2h
+- Race-condition guard via `pg_advisory_xact_lock` + `SELECT FOR UPDATE`
+
 ## Deploy
 
 Push em `main` → CI verde → deploy automático no Railway. Healthcheck em `/health/ready`.
