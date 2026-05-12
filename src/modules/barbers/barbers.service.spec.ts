@@ -30,11 +30,23 @@ describe('BarbersService', () => {
     });
   });
 
-  it('create() forwards displayName + bio', async () => {
+  it('create() forwards displayName + bio when no email is given', async () => {
     repo.create.mockResolvedValue({ id: 'new', displayName: 'X' } as never);
     await svc.create({ displayName: 'X', bio: 'b' });
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(repo.create).toHaveBeenCalledWith({ displayName: 'X', bio: 'b' });
+  });
+
+  it('create() strips email before forwarding to repo', async () => {
+    repo.create.mockResolvedValue({ id: 'new', displayName: 'X' } as never);
+    await svc.create({ displayName: 'X', bio: 'b', email: 'someone@test.com' });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(repo.create).toHaveBeenCalledWith({ displayName: 'X', bio: 'b' });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(repo.create).not.toHaveBeenCalledWith(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      expect.objectContaining({ email: expect.anything() }),
+    );
   });
 
   it('update() rejects unknown barber with 404', async () => {

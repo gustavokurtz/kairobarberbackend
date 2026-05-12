@@ -44,6 +44,7 @@ export class BarbersController {
   }
 
   @Patch(':id')
+  @Roles(UserRole.tenant_owner, UserRole.barber_member)
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateBarberDto,
