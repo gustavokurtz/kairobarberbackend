@@ -228,6 +228,31 @@ export class AiVisagismService {
     return { status: AiConsultationStatus.generating };
   }
 
+  async getGeneratedImageUrl(
+    id: string,
+    plainToken: string,
+  ): Promise<{ url: string; expiresInSeconds: number }> {
+    const consultation = await this.getByIdAndToken(id, plainToken);
+    if (consultation.expiredAt) {
+      throw new DomainException({
+        code: ErrorCodes.AI_CONSULTATION_EXPIRED,
+        message: 'Esta consulta expirou.',
+        status: HttpStatus.GONE,
+      });
+    }
+    if (!consultation.outputPhotoR2Key) {
+      throw new DomainException({
+        code: ErrorCodes.AI_CONSULTATION_NOT_READY,
+        message: 'Imagem ainda não gerada.',
+        status: HttpStatus.CONFLICT,
+        details: { status: consultation.status },
+      });
+    }
+    const ttl = 300;
+    const url = await this.storage.presignGet(consultation.outputPhotoR2Key, ttl);
+    return { url, expiresInSeconds: ttl };
+  }
+
   private async assertSubscriptionAllowed(tenantId: string): Promise<void> {
     const sub = await this.prisma.subscription.findUnique({ where: { tenantId } });
     if (!sub || sub.status === 'cancelled' || sub.status === 'past_due') {
