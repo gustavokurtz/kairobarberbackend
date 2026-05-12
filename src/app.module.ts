@@ -14,6 +14,7 @@ import { BarbersModule } from './modules/barbers/barbers.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
+import { PublicModule } from './modules/public/public.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SchedulingModule } from './modules/scheduling/scheduling.module';
     CatalogModule,
     CustomersModule,
     SchedulingModule,
+    PublicModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -13,6 +13,10 @@ export class TenantRepository {
     });
   }
 
+  findBySlug(slug: string) {
+    return this.prisma.tenant.findFirst({ where: { slug, deletedAt: null } });
+  }
+
   update(id: string, data: Prisma.TenantUpdateInput) {
     return this.prisma.tenant.update({ where: { id }, data });
   }
