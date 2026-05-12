@@ -11,6 +11,6 @@ import { PhotoRepository } from './repositories/photo.repository';
   imports: [BarbersModule],
   controllers: [ServicesController, PhotosController],
   providers: [ServicesService, ServiceRepository, PhotosService, PhotoRepository],
-  exports: [ServicesService, ServiceRepository],
+  exports: [ServicesService, ServiceRepository, PhotosService, PhotoRepository],
 })
 export class CatalogModule {}

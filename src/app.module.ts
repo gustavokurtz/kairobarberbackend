@@ -13,6 +13,7 @@ import { TenantsModule } from './modules/tenants/tenants.module';
 import { BarbersModule } from './modules/barbers/barbers.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { CustomersModule } from './modules/customers/customers.module';
+import { SchedulingModule } from './modules/scheduling/scheduling.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { CustomersModule } from './modules/customers/customers.module';
     BarbersModule,
     CatalogModule,
     CustomersModule,
+    SchedulingModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

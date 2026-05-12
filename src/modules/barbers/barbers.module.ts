@@ -18,6 +18,6 @@ import { BarberInvitationRepository } from './repositories/barber-invitation.rep
     BarberInvitationsService,
     BarberInvitationRepository,
   ],
-  exports: [BarbersService, BarberRepository, BarberInvitationsService],
+  exports: [BarbersService, BarberRepository, BarberInvitationsService, TimeOffRepository],
 })
 export class BarbersModule {}
