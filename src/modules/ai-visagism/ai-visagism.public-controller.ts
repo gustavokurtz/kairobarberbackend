@@ -12,7 +12,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { CurrentTenant } from 'src/common/decorators/current-tenant.decorator';
 import { Public } from 'src/common/decorators/public.decorator';
 import { DomainException } from 'src/common/exceptions/domain.exception';
@@ -78,6 +78,8 @@ export class PublicAiVisagismController {
   }
 
   // GET /public/ai/visagism/consultations/:id?token=
+  // SkipThrottle: polling de status é fluxo legítimo do cliente. POST de criação/geração mantém throttle.
+  @SkipThrottle()
   @Get('public/ai/visagism/consultations/:id')
   async get(@Param('id') id: string, @Query() q: ViewConsultationQueryDto) {
     const c = await this.service.getByIdAndToken(id, q.token);

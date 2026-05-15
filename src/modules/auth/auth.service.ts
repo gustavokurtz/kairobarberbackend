@@ -215,7 +215,11 @@ export class AuthService {
       });
     } catch (err) {
       this.logger.warn(
-        { event: 'auth.forgot_password_email_failed', userId: user.id, err: (err as Error).message },
+        {
+          event: 'auth.forgot_password_email_failed',
+          userId: user.id,
+          err: (err as Error).message,
+        },
         'reset-password email failed to send',
       );
     }

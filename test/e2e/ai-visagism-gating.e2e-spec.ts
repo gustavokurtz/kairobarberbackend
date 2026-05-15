@@ -74,23 +74,9 @@ describe('AI Visagism — gating (e2e)', () => {
     expect((res.body as { code: string }).code).toBe('SUBSCRIPTION_INACTIVE');
   });
 
-  it('400 AI_CONSENT_STALE quando consentAcceptedAt > 1h atrás', async () => {
-    const server = app.getHttpServer() as Express.Application;
-    const { tenantId } = await createTenantOwner(
-      app,
-      'stale-consent-shop',
-      'stale-consent@kairo.test',
-    );
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) throw new Error('tenant');
-    const oldConsent = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    const res = await request(server)
-      .post(`/public/${tenant.slug}/ai/visagism/consultations`)
-      .field('consentAcceptedAt', oldConsent)
-      .attach('photo', loadPhotoBuffer(), { filename: 'p.jpg', contentType: 'image/jpeg' });
-    expect(res.status).toBe(HttpStatus.BAD_REQUEST);
-    expect((res.body as { code: string }).code).toBe('AI_CONSENT_STALE');
-  });
+  // Validação de idade do consentimento foi removida (MVP). O timestamp ainda é gravado
+  // no banco pra auditoria. Reativar quando LGPD/compliance virar prioridade.
+  it.skip('400 AI_CONSENT_STALE quando consentAcceptedAt > 1h atrás (desativado em MVP)', () => {});
 
   it('400 AI_PHOTO_INVALID quando MIME falsificado (jpeg declarado, png real)', async () => {
     const server = app.getHttpServer() as Express.Application;

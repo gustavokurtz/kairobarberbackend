@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KairoBarber · QA Console</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #181b22; --panel-2: #20242d; --border: #2a2f3a;
+    --fg: #e6e8eb; --muted: #8b93a3; --accent: #7c5cff; --ok: #4ade80; --warn: #fbbf24; --err: #f87171;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--fg); }
+  header {
+    position: sticky; top: 0; z-index: 10; background: var(--panel); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  }
+  header h1 { margin: 0; font-size: 14px; font-weight: 600; }
+  header .sep { flex: 1; }
+  header label { color: var(--muted); font-size: 12px; }
+  header input[type="text"] {
+    background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 8px; font: 12px var(--mono); width: 240px;
+  }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+  .dot.ok { background: var(--ok); } .dot.err { background: var(--err); } .dot.idle { background: var(--muted); }
+  main { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 49px); }
+  nav { border-right: 1px solid var(--border); padding: 12px 8px; background: var(--panel); }
+  nav button {
+    display: block; width: 100%; text-align: left; padding: 8px 12px; margin-bottom: 2px;
+    background: transparent; color: var(--fg); border: 0; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  nav button:hover { background: var(--panel-2); }
+  nav button.active { background: var(--accent); color: white; }
+  section.page { padding: 20px 24px; display: none; max-width: 1100px; }
+  section.page.active { display: block; }
+  h2 { margin: 0 0 6px; font-size: 18px; }
+  h3 { margin: 18px 0 8px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  p.hint { color: var(--muted); margin: 0 0 16px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .row > * { margin: 0; }
+  button.btn {
+    background: var(--accent); color: white; border: 0; padding: 8px 14px; border-radius: 6px;
+    font-size: 13px; cursor: pointer; font-weight: 500;
+  }
+  button.btn:hover { filter: brightness(1.1); }
+  button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.btn.ghost { background: transparent; color: var(--fg); border: 1px solid var(--border); }
+  button.btn.danger { background: var(--err); }
+  input[type="text"], input[type="number"], input[type="email"], input[type="file"], select {
+    background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; font-size: 13px; min-width: 200px;
+  }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  pre, code.block {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px;
+    font: 12px var(--mono); white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; margin: 0;
+  }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .pill.ok { background: rgba(74,222,128,0.15); color: var(--ok); }
+  .pill.warn { background: rgba(251,191,36,0.15); color: var(--warn); }
+  .pill.err { background: rgba(248,113,113,0.15); color: var(--err); }
+  .pill.muted { background: var(--panel-2); color: var(--muted); }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 13px; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .kv code { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+  img.preview { max-width: 100%; max-height: 320px; border-radius: 6px; border: 1px solid var(--border); display: block; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
+  .suggestion {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px;
+  }
+  .suggestion .title { font-weight: 600; margin-bottom: 4px; }
+  .suggestion .meta { color: var(--muted); font-size: 12px; }
+  details { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  .log { font: 12px var(--mono); color: var(--muted); white-space: pre-wrap; max-height: 140px; overflow: auto; }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>KairoBarber · QA Console</h1>
+  <span class="pill muted" id="apiStatus"><span class="dot idle"></span> verificando…</span>
+  <span class="sep"></span>
+  <label>API <input type="text" id="apiUrl" /></label>
+  <button class="btn ghost" id="btnReset" title="Limpa tudo do localStorage">↺ reset</button>
+</header>
+<main>
+  <nav>
+    <button data-page="setup" class="active">🚀 Setup rápido</button>
+    <button data-page="catalog">💇 Catálogo</button>
+    <button data-page="public">🛒 Storefront pública</button>
+    <button data-page="booking">📅 Booking</button>
+    <button data-page="ai">🧠 AI Visagism</button>
+    <button data-page="r2">☁️ Upload R2</button>
+    <button data-page="billing">💳 Billing</button>
+    <button data-page="state">🗂️ Estado salvo</button>
+  </nav>
+
+  <!-- ── Setup ───────────────────────────────────────────────── -->
+  <section class="page active" id="page-setup">
+    <h2>Setup rápido</h2>
+    <p class="hint">Cria um tenant completo em 1 clique. Tudo fica salvo em localStorage e fica disponível nas outras abas.</p>
+
+    <div class="card">
+      <h3>Tenant + barbeiro + serviço + business hours</h3>
+      <div class="row">
+        <button class="btn" id="btnQuickSetup">▶ Rodar setup</button>
+        <button class="btn ghost" id="btnLoadExisting">↻ Recarregar tenant atual</button>
+      </div>
+      <details style="margin-top: 12px"><summary>O que esse botão faz?</summary>
+        <ol style="margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: 13px;">
+          <li><code>POST /auth/register/owner</code> com email/slug únicos</li>
+          <li><code>PATCH /admin/tenant/business-hours</code> — seg-sex 9-18, sáb 9-15</li>
+          <li><code>POST /admin/barbers</code> — "Pedro"</li>
+          <li><code>POST /admin/services</code> — "Corte" 30min R$45</li>
+          <li><code>PUT /admin/services/:id/barbers</code> — vincula os dois</li>
+        </ol>
+      </details>
+      <pre id="setupOutput" style="margin-top: 12px; display: none"></pre>
+    </div>
+
+    <div class="card" id="setupSummary" style="display: none">
+      <h3>Tenant ativo</h3>
+      <div class="kv" id="setupKv"></div>
+    </div>
+  </section>
+
+  <!-- ── Catálogo ────────────────────────────────────────────── -->
+  <section class="page" id="page-catalog">
+    <h2>Catálogo</h2>
+    <p class="hint">Adicionar mais barbeiros/serviços ao tenant atual.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Barbeiros</h3>
+        <div class="row">
+          <input type="text" id="barberName" placeholder="Display name" />
+          <input type="email" id="barberEmail" placeholder="email (opcional → manda invite)" />
+          <button class="btn" id="btnCreateBarber">+ Criar</button>
+        </div>
+        <pre id="barbersList" style="margin-top: 12px">Carregando…</pre>
+      </div>
+
+      <div class="card">
+        <h3>Serviços</h3>
+        <div class="row">
+          <input type="text" id="svcName" placeholder="Nome" />
+          <input type="number" id="svcDuration" placeholder="min" value="30" style="min-width:80px"/>
+          <input type="number" id="svcPrice" placeholder="centavos" value="4500" style="min-width:120px"/>
+          <button class="btn" id="btnCreateService">+ Criar</button>
+        </div>
+        <pre id="servicesList" style="margin-top: 12px">Carregando…</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Storefront ──────────────────────────────────────────── -->
+  <section class="page" id="page-public">
+    <h2>Storefront pública</h2>
+    <p class="hint">Como o cliente vê o tenant. Útil para validar formatação BR, mensagens e i18n.</p>
+
+    <div class="card">
+      <h3>Atalhos</h3>
+      <div class="row" id="publicLinks">
+        <span class="pill muted">faça o setup primeiro</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>JSON da storefront</h3>
+      <div class="row">
+        <button class="btn ghost" data-public-route="">GET /public/:slug</button>
+        <button class="btn ghost" data-public-route="/services">GET /services</button>
+        <button class="btn ghost" data-public-route="/barbers">GET /barbers</button>
+        <button class="btn ghost" data-public-route="/photos">GET /photos</button>
+      </div>
+      <pre id="publicOutput" style="margin-top: 12px"></pre>
+    </div>
+  </section>
+
+  <!-- ── Booking ─────────────────────────────────────────────── -->
+  <section class="page" id="page-booking">
+    <h2>Booking</h2>
+    <p class="hint">Cria um agendamento público e mostra os tokens (cancelamento, claim) e o status de envio do email.</p>
+
+    <div class="card">
+      <h3>1. Buscar slots disponíveis</h3>
+      <div class="row">
+        <label class="field">de <input type="text" id="availFrom" /></label>
+        <label class="field">até <input type="text" id="availTo" /></label>
+        <button class="btn" id="btnLoadSlots">Carregar</button>
+      </div>
+      <pre id="slotsList" style="margin-top: 12px; max-height: 200px"></pre>
+    </div>
+
+    <div class="card">
+      <h3>2. Reservar</h3>
+      <div class="row">
+        <label class="field">slot <input type="text" id="bookSlot" placeholder="2026-05-20T13:00:00.000Z" /></label>
+        <label class="field">nome <input type="text" id="bookName" value="João Silva" /></label>
+        <label class="field">telefone <input type="text" id="bookPhone" value="+5511988887777" /></label>
+        <label class="field">email <input type="email" id="bookEmail" placeholder="opcional" /></label>
+        <button class="btn" id="btnBook">Agendar</button>
+      </div>
+      <pre id="bookOutput" style="margin-top: 12px"></pre>
+    </div>
+
+    <div class="card" id="bookActions" style="display:none">
+      <h3>3. Pós-booking</h3>
+      <div class="row">
+        <button class="btn ghost" id="btnLookup">GET /public/appointments/:id?token</button>
+        <button class="btn danger" id="btnCancel">Cancelar com magic link</button>
+      </div>
+      <pre id="postBookOutput" style="margin-top: 12px"></pre>
+    </div>
+
+    <div class="card">
+      <h3>📨 Onde ver o email?</h3>
+      <p class="hint" style="margin: 0">
+        Se <code>EMAIL_PROVIDER=console</code> (default em dev): conteúdo aparece no <strong>terminal do <code>pnpm start:dev</code></strong> em formato texto.<br>
+        Se <code>EMAIL_PROVIDER=resend</code>: checar a caixa do destinatário ou
+        <a href="https://resend.com/emails" target="_blank" style="color: var(--accent)">resend.com/emails</a>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── AI Visagism ─────────────────────────────────────────── -->
+  <section class="page" id="page-ai">
+    <h2>AI Visagism</h2>
+    <p class="hint">Upload de foto → análise → sugestões de corte → geração opt-in de imagem. Manual checklist § 1.</p>
+
+    <div class="card">
+      <h3>1. Upload</h3>
+      <div class="row">
+        <input type="file" id="aiPhoto" accept="image/*" />
+        <button class="btn" id="btnAiUpload">Enviar consulta</button>
+      </div>
+      <div id="aiOrigPreview" style="margin-top: 12px; display: none">
+        <img id="aiOrigImg" class="preview" />
+      </div>
+    </div>
+
+    <div class="card" id="aiPollingCard" style="display: none">
+      <h3>2. Processamento</h3>
+      <div class="kv" id="aiStatusKv"></div>
+      <div class="log" id="aiLog" style="margin-top: 10px"></div>
+    </div>
+
+    <div class="card" id="aiAnalysisCard" style="display: none">
+      <h3>3. Análise</h3>
+      <div class="kv" id="aiAnalysisKv"></div>
+      <h3 style="margin-top: 16px">Sugestões</h3>
+      <div id="aiSuggestions"></div>
+    </div>
+
+    <div class="card" id="aiGenCard" style="display: none">
+      <h3>4. Imagem gerada</h3>
+      <div class="grid-2">
+        <div>
+          <p class="hint">Original</p>
+          <img id="aiOrigImg2" class="preview" />
+        </div>
+        <div>
+          <p class="hint">Sugestão</p>
+          <img id="aiGenImg" class="preview" />
+        </div>
+      </div>
+      <div class="log" id="aiGenLog" style="margin-top: 10px"></div>
+    </div>
+  </section>
+
+  <!-- ── R2 Upload ───────────────────────────────────────────── -->
+  <section class="page" id="page-r2">
+    <h2>Upload R2 (presigned PUT)</h2>
+    <p class="hint">Valida o fluxo completo: backend gera presigned URL → navegador faz PUT direto no R2 → backend confirma. Manual checklist § 4.</p>
+
+    <div class="card">
+      <h3>Fluxo completo</h3>
+      <input type="file" id="r2File" accept="image/*" />
+      <div class="row" style="margin-top: 12px">
+        <label class="field">caption <input type="text" id="r2Caption" value="Teste QA" /></label>
+        <label class="field">associar a barbeiro
+          <select id="r2BarberId"><option value="">— nenhum —</option></select>
+        </label>
+        <label class="field">ou a serviço
+          <select id="r2ServiceId"><option value="">— nenhum —</option></select>
+        </label>
+      </div>
+      <div class="row" style="margin-top: 12px">
+        <button class="btn ghost" id="btnR2Url">1. Presigned URL</button>
+        <button class="btn ghost" id="btnR2Put" disabled>2. PUT no R2</button>
+        <button class="btn ghost" id="btnR2Confirm" disabled>3. Confirmar foto</button>
+        <button class="btn ghost" id="btnR2Verify" disabled>4. Ver na storefront</button>
+      </div>
+      <pre id="r2Output" style="margin-top: 12px"></pre>
+    </div>
+
+    <div class="card">
+      <h3>Visualizar imagem (se Public Dev URL ativada no R2)</h3>
+      <div class="row">
+        <label class="field">URL base do R2 (ex: <code>https://pub-XXXX.r2.dev</code>)
+          <input type="text" id="r2PublicBase" placeholder="https://pub-XXXX.r2.dev" style="min-width: 320px"/>
+        </label>
+        <button class="btn ghost" id="btnR2View">Carregar última foto</button>
+      </div>
+      <img id="r2Preview" class="preview" style="margin-top: 12px; display: none" />
+      <p class="hint" style="margin-top: 8px">
+        Ative no <strong>Dashboard R2 → kairobucket → Settings → URL de desenvolvimento público</strong>.
+        A URL fica salva em localStorage.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>⚠️ Atenção</h3>
+      <p class="hint" style="margin: 0">
+        Só funciona com <code>STORAGE_PROVIDER=r2</code> no <code>.env</code> do servidor (com creds válidas).
+        Com <code>STORAGE_PROVIDER=console</code> a URL é fake e o PUT falha — comportamento esperado.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── Billing ─────────────────────────────────────────────── -->
+  <section class="page" id="page-billing">
+    <h2>Billing</h2>
+    <p class="hint">Manual checklist § 3 — testar fluxo do Mercado Pago em sandbox/real.</p>
+
+    <div class="card">
+      <h3>Subscription atual</h3>
+      <div class="row">
+        <button class="btn ghost" id="btnBillSub">GET /admin/billing/subscription</button>
+        <button class="btn ghost" id="btnBillSync">POST /admin/billing/sync</button>
+        <button class="btn ghost" id="btnBillInvoices">GET /admin/billing/invoices</button>
+      </div>
+      <pre id="billOutput" style="margin-top: 12px"></pre>
+    </div>
+
+    <div class="card">
+      <h3>Checkout</h3>
+      <p class="hint">Cria preapproval e abre a página de pagamento. Em prod, gera cobrança real.</p>
+      <div class="row">
+        <button class="btn" id="btnBillCheckout">Criar checkout</button>
+      </div>
+      <pre id="checkoutOutput" style="margin-top: 12px"></pre>
+    </div>
+  </section>
+
+  <!-- ── Estado salvo ────────────────────────────────────────── -->
+  <section class="page" id="page-state">
+    <h2>Estado salvo</h2>
+    <p class="hint">Tudo que está em localStorage. Útil pra debug ou inspecionar tokens.</p>
+    <pre id="stateDump"></pre>
+  </section>
+</main>
+
+<script>
+// ─── State ────────────────────────────────────────────────────
+const LS_KEY = 'kairo-qa-state';
+const defaultState = {
+  apiUrl: 'http://localhost:3000',
+  tenant: null,        // { id, slug, name }
+  tokens: null,        // { access, refresh }
+  ownerEmail: null,
+  barberId: null,
+  serviceId: null,
+  lastBooking: null,   // { id, cancellationToken }
+  lastAi: null,        // { id, viewToken }
+  lastR2: null,        // { uploadUrl, r2Key, contentType }
+};
+let state = { ...defaultState, ...(JSON.parse(localStorage.getItem(LS_KEY) || '{}')) };
+const saveState = () => localStorage.setItem(LS_KEY, JSON.stringify(state));
+
+// ─── Helpers ──────────────────────────────────────────────────
+const $ = (q) => document.querySelector(q);
+const $$ = (q) => document.querySelectorAll(q);
+const fmt = (obj) => JSON.stringify(obj, null, 2);
+const setStatus = (kind, text) => {
+  const el = $('#apiStatus');
+  el.innerHTML = `<span class="dot ${kind}"></span> ${text}`;
+  el.className = `pill ${kind === 'ok' ? 'ok' : kind === 'err' ? 'err' : 'muted'}`;
+};
+
+async function api(method, path, { body, auth = true, isForm = false } = {}) {
+  const url = state.apiUrl + path;
+  const headers = {};
+  if (!isForm && body !== undefined) headers['Content-Type'] = 'application/json';
+  if (auth && state.tokens?.access) headers['Authorization'] = `Bearer ${state.tokens.access}`;
+  const res = await fetch(url, {
+    method, headers,
+    body: isForm ? body : (body !== undefined ? JSON.stringify(body) : undefined),
+  });
+  const text = await res.text();
+  let parsed;
+  try { parsed = text ? JSON.parse(text) : null; } catch { parsed = text; }
+  return { status: res.status, ok: res.ok, body: parsed };
+}
+
+function show(el, content) {
+  if (typeof el === 'string') el = $(el);
+  el.style.display = 'block';
+  if (typeof content === 'string') el.textContent = content;
+  else el.textContent = fmt(content);
+}
+
+function renderKv(elQ, obj) {
+  const el = $(elQ);
+  el.innerHTML = '';
+  for (const [k, v] of Object.entries(obj)) {
+    const span1 = document.createElement('span'); span1.textContent = k;
+    const span2 = document.createElement('span');
+    const code = document.createElement('code'); code.textContent = v ?? '—';
+    span2.appendChild(code);
+    el.appendChild(span1); el.appendChild(span2);
+  }
+}
+
+function refreshSetupSummary() {
+  if (!state.tenant) { $('#setupSummary').style.display = 'none'; return; }
+  $('#setupSummary').style.display = 'block';
+  renderKv('#setupKv', {
+    slug: state.tenant.slug,
+    'tenant id': state.tenant.id,
+    'owner email': state.ownerEmail,
+    'barber id': state.barberId,
+    'service id': state.serviceId,
+    'access token': state.tokens?.access ? state.tokens.access.slice(0, 28) + '…' : '—',
+  });
+}
+
+function refreshPublicLinks() {
+  const el = $('#publicLinks');
+  if (!state.tenant) { el.innerHTML = '<span class="pill muted">faça o setup primeiro</span>'; return; }
+  el.innerHTML = '';
+  const links = [
+    ['Storefront (JSON)', `${state.apiUrl}/public/${state.tenant.slug}`],
+    ['Serviços', `${state.apiUrl}/public/${state.tenant.slug}/services`],
+    ['Barbeiros', `${state.apiUrl}/public/${state.tenant.slug}/barbers`],
+    ['Fotos', `${state.apiUrl}/public/${state.tenant.slug}/photos`],
+  ];
+  for (const [label, url] of links) {
+    const a = document.createElement('a');
+    a.href = url; a.target = '_blank'; a.className = 'btn ghost';
+    a.style.textDecoration = 'none';
+    a.textContent = label;
+    el.appendChild(a);
+  }
+}
+
+// ─── Healthcheck ──────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(state.apiUrl + '/health/live');
+    setStatus(r.ok ? 'ok' : 'err', r.ok ? 'API ok' : `API ${r.status}`);
+  } catch (e) {
+    setStatus('err', 'API offline');
+  }
+}
+
+// ─── Navigation ───────────────────────────────────────────────
+$$('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('nav button').forEach(b => b.classList.remove('active'));
+    $$('section.page').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    $(`#page-${btn.dataset.page}`).classList.add('active');
+    if (btn.dataset.page === 'state') $('#stateDump').textContent = fmt(state);
+    if (btn.dataset.page === 'public') refreshPublicLinks();
+    if (btn.dataset.page === 'catalog') refreshCatalog();
+    if (btn.dataset.page === 'booking') prefillBookingDates();
+    if (btn.dataset.page === 'r2') refreshR2Selects();
+  });
+});
+
+// ─── Topbar ───────────────────────────────────────────────────
+$('#apiUrl').value = state.apiUrl;
+$('#apiUrl').addEventListener('change', e => {
+  state.apiUrl = e.target.value.replace(/\/$/, '');
+  saveState();
+  checkHealth();
+  refreshPublicLinks();
+});
+$('#btnReset').addEventListener('click', () => {
+  if (!confirm('Limpa todo o estado (tokens, tenant, etc)?')) return;
+  state = { ...defaultState };
+  saveState();
+  location.reload();
+});
+
+// ─── Setup ────────────────────────────────────────────────────
+$('#btnQuickSetup').addEventListener('click', async () => {
+  const btn = $('#btnQuickSetup'); btn.disabled = true; btn.textContent = '⏳ rodando…';
+  const out = $('#setupOutput'); show(out, 'iniciando…');
+  try {
+    const stamp = Date.now().toString(36);
+    const email = `qa-${stamp}@kairo.local`;
+    const slug = `qa-${stamp}`;
+    let log = `▶ POST /auth/register/owner email=${email} slug=${slug}\n`;
+
+    const reg = await api('POST', '/auth/register/owner', {
+      auth: false,
+      body: { email, password: 'StrongPass!1', name: 'QA Owner', tenantName: `QA ${stamp}`, slug },
+    });
+    if (!reg.ok) throw new Error(`register: ${reg.status} ${fmt(reg.body)}`);
+    state.ownerEmail = email;
+    state.tokens = { access: reg.body.accessToken, refresh: reg.body.refreshToken };
+    state.tenant = reg.body.tenant;
+    log += `✓ tenant ${reg.body.tenant.slug}\n`;
+
+    log += '▶ PATCH /admin/tenant/business-hours\n';
+    const bh = await api('PATCH', '/admin/tenant/business-hours', {
+      body: { businessHours: { days: [
+        { open: false, intervals: [] },
+        { open: true, intervals: [{ startMin: 540, endMin: 1080 }] },
+        { open: true, intervals: [{ startMin: 540, endMin: 1080 }] },
+        { open: true, intervals: [{ startMin: 540, endMin: 1080 }] },
+        { open: true, intervals: [{ startMin: 540, endMin: 1080 }] },
+        { open: true, intervals: [{ startMin: 540, endMin: 1080 }] },
+        { open: true, intervals: [{ startMin: 540, endMin: 900 }] },
+      ]}},
+    });
+    if (!bh.ok) throw new Error(`business-hours: ${bh.status} ${fmt(bh.body)}`);
+    log += `✓ business hours\n`;
+
+    log += '▶ POST /admin/barbers Pedro\n';
+    const bar = await api('POST', '/admin/barbers', { body: { displayName: 'Pedro', bio: 'Especialista em degradê' } });
+    if (!bar.ok) throw new Error(`barber: ${bar.status} ${fmt(bar.body)}`);
+    state.barberId = bar.body.id;
+    log += `✓ barber ${bar.body.id}\n`;
+
+    log += '▶ POST /admin/services Corte\n';
+    const svc = await api('POST', '/admin/services', { body: { name: 'Corte', durationMin: 30, priceCents: 4500, description: 'Corte clássico' } });
+    if (!svc.ok) throw new Error(`service: ${svc.status} ${fmt(svc.body)}`);
+    state.serviceId = svc.body.id;
+    log += `✓ service ${svc.body.id}\n`;
+
+    log += '▶ PUT /admin/services/:id/barbers\n';
+    const link = await api('PUT', `/admin/services/${svc.body.id}/barbers`, { body: { barberIds: [bar.body.id] } });
+    if (!link.ok) throw new Error(`link: ${link.status} ${fmt(link.body)}`);
+    log += `✓ vinculado\n\nPronto. Tenant: ${state.tenant.slug}`;
+
+    saveState();
+    show(out, log);
+    refreshSetupSummary();
+    refreshPublicLinks();
+  } catch (e) {
+    show(out, `ERRO: ${e.message}`);
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ Rodar setup';
+  }
+});
+
+$('#btnLoadExisting').addEventListener('click', async () => {
+  if (!state.tokens) { alert('sem tokens — rode o setup primeiro'); return; }
+  const r = await api('GET', '/admin/tenant');
+  if (!r.ok) { alert(`erro ${r.status}`); return; }
+  state.tenant = { id: r.body.id, slug: r.body.slug, name: r.body.name };
+  saveState();
+  refreshSetupSummary();
+  refreshPublicLinks();
+});
+
+// ─── Catalog ──────────────────────────────────────────────────
+async function refreshCatalog() {
+  if (!state.tokens) { $('#barbersList').textContent = $('#servicesList').textContent = 'rode o setup primeiro'; return; }
+  const [b, s] = await Promise.all([ api('GET', '/admin/barbers'), api('GET', '/admin/services') ]);
+  $('#barbersList').textContent = b.ok ? fmt(b.body) : `err ${b.status}`;
+  $('#servicesList').textContent = s.ok ? fmt(s.body) : `err ${s.status}`;
+}
+$('#btnCreateBarber').addEventListener('click', async () => {
+  const name = $('#barberName').value.trim();
+  const emailEl = $('#barberEmail').value.trim();
+  if (!name) return alert('nome obrigatório');
+  const body = { displayName: name };
+  if (emailEl) body.email = emailEl;
+  const r = await api('POST', '/admin/barbers', { body });
+  if (!r.ok) return alert(`erro ${r.status} ${JSON.stringify(r.body)}`);
+  $('#barberName').value = ''; $('#barberEmail').value = '';
+  refreshCatalog();
+});
+$('#btnCreateService').addEventListener('click', async () => {
+  const body = {
+    name: $('#svcName').value.trim(),
+    durationMin: Number($('#svcDuration').value),
+    priceCents: Number($('#svcPrice').value),
+  };
+  if (!body.name) return alert('nome obrigatório');
+  const r = await api('POST', '/admin/services', { body });
+  if (!r.ok) return alert(`erro ${r.status} ${JSON.stringify(r.body)}`);
+  $('#svcName').value = '';
+  refreshCatalog();
+});
+
+// ─── Storefront ───────────────────────────────────────────────
+$$('button[data-public-route]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (!state.tenant) return alert('rode o setup');
+    const route = btn.dataset.publicRoute;
+    const r = await api('GET', `/public/${state.tenant.slug}${route}`, { auth: false });
+    $('#publicOutput').textContent = `[${r.status}]\n${fmt(r.body)}`;
+  });
+});
+
+// ─── Booking ──────────────────────────────────────────────────
+function prefillBookingDates() {
+  const t = new Date(); t.setUTCHours(0, 0, 0, 0); t.setUTCDate(t.getUTCDate() + 1);
+  const t2 = new Date(t); t2.setUTCDate(t2.getUTCDate() + 7);
+  if (!$('#availFrom').value) $('#availFrom').value = t.toISOString();
+  if (!$('#availTo').value) $('#availTo').value = t2.toISOString();
+}
+$('#btnLoadSlots').addEventListener('click', async () => {
+  if (!state.tenant || !state.serviceId) return alert('rode o setup');
+  const from = $('#availFrom').value, to = $('#availTo').value;
+  const r = await api('GET', `/public/${state.tenant.slug}/availability/by-service/${state.serviceId}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { auth: false });
+  $('#slotsList').textContent = r.ok ? fmt(r.body) : `err ${r.status}`;
+  if (r.ok && r.body[0]?.slots?.[0]) {
+    $('#bookSlot').value = r.body[0].slots[0].startsAt;
+  }
+});
+$('#btnBook').addEventListener('click', async () => {
+  if (!state.tenant) return alert('rode o setup');
+  const body = {
+    serviceId: state.serviceId,
+    barberId: state.barberId,
+    startsAt: $('#bookSlot').value,
+    customer: {
+      name: $('#bookName').value,
+      phone: $('#bookPhone').value,
+      ...(($('#bookEmail').value) ? { email: $('#bookEmail').value } : {}),
+    },
+  };
+  const r = await api('POST', `/public/${state.tenant.slug}/appointments`, { auth: false, body });
+  $('#bookOutput').textContent = `[${r.status}]\n${fmt(r.body)}`;
+  if (r.ok) {
+    state.lastBooking = { id: r.body.id, cancellationToken: r.body.cancellationToken };
+    saveState();
+    $('#bookActions').style.display = 'block';
+  }
+});
+$('#btnLookup').addEventListener('click', async () => {
+  if (!state.lastBooking) return;
+  const r = await api('GET', `/public/appointments/${state.lastBooking.id}?token=${state.lastBooking.cancellationToken}`, { auth: false });
+  $('#postBookOutput').textContent = `[${r.status}]\n${fmt(r.body)}`;
+});
+$('#btnCancel').addEventListener('click', async () => {
+  if (!state.lastBooking) return;
+  const r = await api('POST', `/public/appointments/${state.lastBooking.id}/cancel?token=${state.lastBooking.cancellationToken}`, { auth: false, body: {} });
+  $('#postBookOutput').textContent = `[${r.status}]\n${fmt(r.body)}`;
+});
+
+// ─── AI Visagism ─────────────────────────────────────────────
+// GET de status tem @SkipThrottle no backend — polling pode ser responsivo.
+const POLL_INTERVAL_MS = 3000;
+
+async function aiPoll(id, viewToken, logEl, statusKvEl) {
+  const start = Date.now();
+  for (let i = 0; i < 80; i++) {
+    const r = await fetch(`${state.apiUrl}/public/ai/visagism/consultations/${id}?token=${viewToken}`);
+    const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+    if (r.status === 429) {
+      logEl.textContent += `[${elapsed}s] throttled (429) — aguardando 15s\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+      await new Promise(r => setTimeout(r, 15000));
+      continue;
+    }
+    const body = await r.json();
+    renderKv('#aiStatusKv', { status: body.status, 'tempo (s)': elapsed, id });
+    logEl.textContent += `[${elapsed}s] status=${body.status}\n`;
+    logEl.scrollTop = logEl.scrollHeight;
+    if (body.status === 'completed' || body.status === 'failed' || body.status === 'expired') return body;
+    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+  }
+  throw new Error('timeout');
+}
+$('#btnAiUpload').addEventListener('click', async () => {
+  const file = $('#aiPhoto').files[0];
+  if (!file) return alert('escolha uma foto');
+  if (!state.tenant) return alert('rode o setup');
+  const btn = $('#btnAiUpload'); btn.disabled = true; btn.textContent = '⏳ enviando…';
+
+  // mostra preview da original
+  const fr = new FileReader();
+  fr.onload = () => { $('#aiOrigImg').src = fr.result; $('#aiOrigImg2').src = fr.result; $('#aiOrigPreview').style.display = 'block'; };
+  fr.readAsDataURL(file);
+
+  const fd = new FormData();
+  fd.append('photo', file);
+  // -120s de safety margin: backend rejeita consentAcceptedAt no futuro com tolerância zero.
+  // WSL2 dessincroniza com Windows com frequência (drift de até alguns minutos após hibernação).
+  fd.append('consentAcceptedAt', new Date(Date.now() - 120_000).toISOString());
+
+  try {
+    const r = await fetch(`${state.apiUrl}/public/${state.tenant.slug}/ai/visagism/consultations`, {
+      method: 'POST', body: fd,
+    });
+    const body = await r.json();
+    if (!r.ok) throw new Error(`upload ${r.status}: ${JSON.stringify(body)}`);
+    state.lastAi = { id: body.id, viewToken: body.viewToken };
+    saveState();
+
+    $('#aiPollingCard').style.display = 'block';
+    $('#aiLog').textContent = '';
+    const result = await aiPoll(body.id, body.viewToken, $('#aiLog'), $('#aiStatusKv'));
+    if (result.status !== 'completed') return alert(`status final: ${result.status}`);
+
+    $('#aiAnalysisCard').style.display = 'block';
+    renderKv('#aiAnalysisKv', {
+      'face shape': result.analysis?.faceShape ?? '—',
+      'confidence': result.analysis?.confidence ?? '—',
+      'sugestões': result.analysis?.suggestions?.length ?? 0,
+    });
+
+    const sugWrap = $('#aiSuggestions'); sugWrap.innerHTML = '';
+    (result.analysis?.suggestions ?? []).forEach(s => {
+      const card = document.createElement('div'); card.className = 'suggestion';
+      card.innerHTML = `
+        <div class="title">${s.name ?? s.id ?? 'corte'}</div>
+        <div class="meta">${s.length ? `length: ${s.length}` : ''} ${s.suitableFor ? `· suitable: ${s.suitableFor.join(', ')}` : ''}</div>
+        <div style="margin-top: 6px">${s.description ?? s.rationale ?? ''}</div>
+      `;
+      const btnG = document.createElement('button');
+      btnG.className = 'btn'; btnG.style.marginTop = '8px';
+      btnG.textContent = '🎨 Gerar imagem desta sugestão';
+      btnG.addEventListener('click', async () => {
+        // Desabilita todos os botões "Gerar imagem" — só 1 geração por consulta.
+        sugWrap.querySelectorAll('button').forEach(b => b.disabled = true);
+        btnG.textContent = '⏳ gerando…';
+        const gr = await fetch(`${state.apiUrl}/public/ai/visagism/consultations/${state.lastAi.id}/generate-image?token=${state.lastAi.viewToken}`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ suggestionId: s.id }),
+        });
+        const gb = await gr.json();
+        if (!gr.ok) {
+          alert(`erro ${gr.status}: ${JSON.stringify(gb)}`);
+          sugWrap.querySelectorAll('button').forEach(b => b.disabled = false);
+          btnG.textContent = '🎨 Gerar imagem desta sugestão';
+          return;
+        }
+        $('#aiGenCard').style.display = 'block';
+        $('#aiGenLog').textContent = 'polling geração…\n';
+        const tStart = Date.now();
+        let done = false;
+        for (let i = 0; i < 80; i++) {
+          const elapsed = ((Date.now() - tStart) / 1000).toFixed(0);
+          const pr = await fetch(`${state.apiUrl}/public/ai/visagism/consultations/${state.lastAi.id}?token=${state.lastAi.viewToken}`);
+          if (pr.status === 429) {
+            $('#aiGenLog').textContent += `[${elapsed}s] throttled (429) — aguardando 15s\n`;
+            await new Promise(r => setTimeout(r, 15000));
+            continue;
+          }
+          const pb = await pr.json();
+          $('#aiGenLog').textContent += `[${elapsed}s] hasImg=${pb.hasGeneratedImage}\n`;
+          if (pb.hasGeneratedImage) {
+            const ir = await fetch(`${state.apiUrl}/public/ai/visagism/consultations/${state.lastAi.id}/image?token=${state.lastAi.viewToken}`);
+            if (ir.ok) {
+              const ib = await ir.json();
+              $('#aiGenImg').src = ib.url;
+              $('#aiGenLog').textContent += `✓ imagem pronta em ${elapsed}s\n`;
+            } else {
+              $('#aiGenLog').textContent += `✗ falha ao pegar URL da imagem: ${ir.status}\n`;
+            }
+            done = true;
+            break;
+          }
+          await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+        }
+        if (!done) $('#aiGenLog').textContent += `\n✗ timeout após ${(80*POLL_INTERVAL_MS/1000)}s — geração travou ou Groq/OpenAI demorou demais\n`;
+        btnG.textContent = done ? '✓ gerada' : '✗ timeout';
+      });
+      card.appendChild(btnG);
+      sugWrap.appendChild(card);
+    });
+  } catch (e) {
+    alert(`erro: ${e.message}`);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enviar consulta';
+  }
+});
+
+// ─── R2 Upload ───────────────────────────────────────────────
+$('#btnR2Url').addEventListener('click', async () => {
+  if (!state.tokens) return alert('rode o setup');
+  const file = $('#r2File').files[0];
+  if (!file) return alert('escolha um arquivo');
+  const r = await api('POST', '/admin/photos/upload-url', { body: { contentType: file.type || 'image/jpeg' } });
+  if (!r.ok) { $('#r2Output').textContent = `[${r.status}]\n${fmt(r.body)}`; return; }
+  state.lastR2 = { uploadUrl: r.body.uploadUrl, r2Key: r.body.r2Key, contentType: file.type || 'image/jpeg' };
+  saveState();
+  $('#r2Output').textContent = `[${r.status}]\n${fmt(r.body)}`;
+  $('#btnR2Put').disabled = false;
+});
+$('#btnR2Put').addEventListener('click', async () => {
+  const file = $('#r2File').files[0];
+  if (!file || !state.lastR2) return alert('faltam passos');
+  $('#r2Output').textContent = `PUT em ${state.lastR2.uploadUrl.slice(0, 80)}…\n`;
+  try {
+    const r = await fetch(state.lastR2.uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': state.lastR2.contentType } });
+    $('#r2Output').textContent += `\n[${r.status}] ${r.ok ? 'OK' : await r.text()}`;
+    if (r.ok) $('#btnR2Confirm').disabled = false;
+  } catch (e) {
+    $('#r2Output').textContent += `\nERRO: ${e.message}\n(comum: CORS do bucket — configure no R2)`;
+  }
+});
+$('#btnR2Confirm').addEventListener('click', async () => {
+  const body = {
+    r2Key: state.lastR2.r2Key,
+    caption: $('#r2Caption').value || undefined,
+  };
+  const bId = $('#r2BarberId').value, sId = $('#r2ServiceId').value;
+  if (bId) body.barberId = bId;
+  if (sId) body.serviceId = sId;
+  const r = await api('POST', '/admin/photos', { body });
+  $('#r2Output').textContent = `[${r.status}]\n${fmt(r.body)}`;
+  if (r.ok) {
+    state.lastR2.uploadedR2Key = state.lastR2.r2Key;
+    saveState();
+    $('#btnR2Verify').disabled = false;
+  }
+});
+$('#btnR2Verify').addEventListener('click', async () => {
+  const r = await api('GET', `/public/${state.tenant.slug}/photos`, { auth: false });
+  $('#r2Output').textContent = `[${r.status}]\n${fmt(r.body)}`;
+});
+
+// Carregar selects de barbeiros/serviços quando entrar na aba R2
+async function refreshR2Selects() {
+  if (!state.tokens) return;
+  const [b, s] = await Promise.all([api('GET','/admin/barbers'), api('GET','/admin/services')]);
+  const fill = (el, list, labelKey) => {
+    el.innerHTML = '<option value="">— nenhum —</option>';
+    if (Array.isArray(list)) for (const item of list) {
+      const opt = document.createElement('option');
+      opt.value = item.id; opt.textContent = `${item[labelKey]} (${item.id.slice(-6)})`;
+      el.appendChild(opt);
+    }
+  };
+  if (b.ok) fill($('#r2BarberId'), b.body, 'displayName');
+  if (s.ok) fill($('#r2ServiceId'), s.body, 'name');
+}
+
+// Preview via Public Dev URL
+$('#r2PublicBase').value = localStorage.getItem('r2-public-base') || '';
+$('#r2PublicBase').addEventListener('change', e => localStorage.setItem('r2-public-base', e.target.value.replace(/\/$/, '')));
+$('#btnR2View').addEventListener('click', () => {
+  const base = $('#r2PublicBase').value.replace(/\/$/, '');
+  const key = state.lastR2?.uploadedR2Key || state.lastR2?.r2Key;
+  if (!base) return alert('preencha a URL base do R2 primeiro');
+  if (!key) return alert('faça um upload primeiro');
+  const url = `${base}/${key}`;
+  $('#r2Preview').src = url;
+  $('#r2Preview').style.display = 'block';
+});
+
+// ─── Billing ──────────────────────────────────────────────────
+async function billingCall(method, path, btnLabel) {
+  const r = await api(method, path, method === 'POST' ? { body: {} } : {});
+  $('#billOutput').textContent = `[${btnLabel}] ${r.status}\n${fmt(r.body)}`;
+}
+$('#btnBillSub').addEventListener('click', () => billingCall('GET', '/admin/billing/subscription', 'GET subscription'));
+$('#btnBillSync').addEventListener('click', () => billingCall('POST', '/admin/billing/sync', 'POST sync'));
+$('#btnBillInvoices').addEventListener('click', () => billingCall('GET', '/admin/billing/invoices?page=1&pageSize=20', 'GET invoices'));
+$('#btnBillCheckout').addEventListener('click', async () => {
+  const r = await api('POST', '/admin/billing/checkout', { body: {} });
+  $('#checkoutOutput').textContent = `[${r.status}]\n${fmt(r.body)}`;
+  if (r.ok && r.body.checkoutUrl) {
+    window.open(r.body.checkoutUrl, '_blank');
+  }
+});
+
+// ─── Boot ─────────────────────────────────────────────────────
+checkHealth();
+setInterval(checkHealth, 10000);
+refreshSetupSummary();
+refreshPublicLinks();
+prefillBookingDates();
+</script>
+</body>
+</html>

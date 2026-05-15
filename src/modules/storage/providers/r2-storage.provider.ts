@@ -31,6 +31,11 @@ export class R2StorageProvider implements StorageProvider {
         accessKeyId: cfg.getOrThrow<string>('R2_ACCESS_KEY_ID'),
         secretAccessKey: cfg.getOrThrow<string>('R2_SECRET_ACCESS_KEY'),
       },
+      // AWS SDK v3 >=3.700 adiciona x-amz-checksum-crc32 calculado do payload na assinatura.
+      // Como presigned PUTs são gerados sem ter o body, o checksum vira CRC32 de zero bytes
+      // e o R2 rejeita com 403 quando o navegador manda o arquivo real. WHEN_REQUIRED desliga isso.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
     });
   }
 
@@ -40,7 +45,9 @@ export class R2StorageProvider implements StorageProvider {
       Bucket: this.bucket,
       Key: r2Key,
       ContentType: input.contentType,
-      ContentLength: input.maxBytes,
+      // NÃO assinamos ContentLength: o SDK o inclui em SignedHeaders, mas o navegador
+      // manda o tamanho REAL do arquivo (não o maxBytes que o backend definiu) →
+      // SignatureDoesNotMatch. Validação de tamanho real é feita pelo service após upload.
     });
     const uploadUrl = await getSignedUrl(this.client, cmd, { expiresIn: input.ttlSeconds });
     return {

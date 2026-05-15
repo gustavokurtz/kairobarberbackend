@@ -48,7 +48,6 @@ export class AiVisagismService {
   private readonly retentionDays: number;
   private readonly maxBytes: number;
   private readonly minDimension: number;
-  private readonly consentMaxAgeSeconds: number;
 
   constructor(
     private readonly repo: AiConsultationRepository,
@@ -63,22 +62,13 @@ export class AiVisagismService {
     this.retentionDays = cfg.getOrThrow<number>('AI_VISAGISM_RETENTION_DAYS');
     this.maxBytes = cfg.getOrThrow<number>('AI_VISAGISM_PHOTO_MAX_BYTES');
     this.minDimension = cfg.getOrThrow<number>('AI_VISAGISM_PHOTO_MIN_DIMENSION');
-    this.consentMaxAgeSeconds = cfg.getOrThrow<number>('AI_VISAGISM_CONSENT_MAX_AGE_SECONDS');
   }
 
   async create(cmd: CreateConsultationCmd): Promise<CreateConsultationResult> {
     // 1. Subscription active (trialing|active)
     await this.assertSubscriptionAllowed(cmd.tenantId);
 
-    // 2. Consent age
-    const ageSec = (cmd.requestNow.getTime() - cmd.consentAcceptedAt.getTime()) / 1000;
-    if (ageSec < 0 || ageSec > this.consentMaxAgeSeconds) {
-      throw new DomainException({
-        code: ErrorCodes.AI_CONSENT_STALE,
-        message: 'Consentimento expirado ou inválido. Por favor, aceite novamente.',
-        status: HttpStatus.BAD_REQUEST,
-      });
-    }
+    // 2. Consent age — checagem desativada (MVP). Timestamp ainda é gravado pra auditoria.
 
     // 3. Photo validation
     await this.assertPhotoValid(cmd.photoBuffer, cmd.photoMimeType);
