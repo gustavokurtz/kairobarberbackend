@@ -105,7 +105,7 @@ export class AuthService {
       await this.email.send({
         to: user.email,
         subject: 'Confirme seu email no KairoBarber',
-        text: `Olá ${user.name}! Confirme seu email com o token abaixo (válido por 24h):\n\n${plain}\n\nOu acesse: ${this.config.get<string>('APP_URL')}/verify-email?token=${plain}`,
+        text: `Olá ${user.name}! Confirme seu email com o token abaixo (válido por 24h):\n\n${plain}\n\nOu acesse: ${this.config.get<string>('APP_URL')}/verificar-email?token=${plain}`,
       });
     } catch (err) {
       this.logger.warn(
@@ -211,7 +211,7 @@ export class AuthService {
       await this.email.send({
         to: user.email,
         subject: 'Redefinição de senha — KairoBarber',
-        text: `Use o token abaixo para redefinir sua senha (válido por 1 hora):\n\n${plain}\n\nOu acesse: ${this.config.get<string>('APP_URL')}/reset-password?token=${plain}`,
+        text: `Use o token abaixo para redefinir sua senha (válido por 1 hora):\n\n${plain}\n\nOu acesse: ${this.config.get<string>('APP_URL')}/redefinir-senha?token=${plain}`,
       });
     } catch (err) {
       this.logger.warn(
