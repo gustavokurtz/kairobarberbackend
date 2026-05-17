@@ -13,7 +13,7 @@ describe('email templates', () => {
     serviceName: 'Corte clássico',
     startsAtLocal: '12/05/2026 14:00',
     priceFormatted: 'R$ 45,00',
-    cancelUrl: 'http://localhost:3000/studio-bigode/agendamentos/abc/cancelar?token=tok123',
+    cancelUrl: 'http://localhost:3000/agendamento/abc?token=tok123',
     claimUrl: 'http://localhost:3000/conta/claim?token=clm456',
   };
 

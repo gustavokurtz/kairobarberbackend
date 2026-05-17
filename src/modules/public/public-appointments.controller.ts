@@ -75,9 +75,9 @@ export class PublicAppointmentsController {
 
     let emailDelivered = true;
     if (customer.email && tenant && service && barber) {
-      const cancelUrl = `${this.cfg.get<string>('APP_PUBLIC_URL')}/${slug}/agendamentos/${appointment.id}/cancelar?token=${cancellationPlainToken}`;
+      const cancelUrl = `${this.cfg.get<string>('APP_PUBLIC_URL')}/agendamento/${appointment.id}?token=${cancellationPlainToken}`;
       const claimUrl = claimPlainToken
-        ? `${this.cfg.get<string>('APP_PUBLIC_URL')}/conta/claim?token=${claimPlainToken}`
+        ? `${this.cfg.get<string>('APP_PUBLIC_URL')}/cliente/claim?token=${claimPlainToken}`
         : undefined;
 
       const tpl = appointmentConfirmationTemplate({
