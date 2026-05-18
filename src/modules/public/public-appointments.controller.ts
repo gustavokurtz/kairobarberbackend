@@ -52,7 +52,6 @@ export class PublicAppointmentsController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @Param('slug') slug: string,
     @CurrentTenant() tenantId: string,
     @Body() dto: CreatePublicAppointmentDto,
   ) {
