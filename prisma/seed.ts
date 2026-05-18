@@ -13,6 +13,7 @@ import {
   AiConsultationStatus,
   AppointmentSource,
   AppointmentStatus,
+  type Prisma,
   PrismaClient,
   SubscriptionStatus,
   UserRole,
@@ -20,6 +21,8 @@ import {
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'crypto';
 import { DateTime } from 'luxon';
+
+import { AuditActions, type AuditAction } from '../src/common/audit/audit-actions';
 
 const TZ = 'America/Sao_Paulo';
 const DEFAULT_PASSWORD = 'Senha123!';
@@ -121,6 +124,16 @@ interface TenantSeed {
     currentPeriodEnd?: Date | null;
     mpPreapprovalId?: string | null;
   };
+  /**
+   * Eventos de ciclo de vida da subscription que vão para audit_log. O
+   * /saas/dashboard calcula o funil (trials/ativações/cancelamentos) a partir
+   * dessa tabela, então sem isso o gráfico fica zerado mesmo com tenants ativos.
+   */
+  subscriptionLifecycle?: Array<{
+    action: AuditAction;
+    at: Date;
+    diff?: Prisma.InputJsonValue;
+  }>;
   suspended?: boolean;
   /** appointments[i] = {dayOffset, hour, barberIdx, serviceIdx, customerIdx, status}. */
   appointments: Array<{
@@ -183,7 +196,7 @@ async function seedTenant(
       },
     });
 
-    await tx.subscription.create({
+    const subscription = await tx.subscription.create({
       data: {
         tenantId: tenant.id,
         status: seed.subscription.status,
@@ -192,6 +205,22 @@ async function seedTenant(
         mpPreapprovalId: seed.subscription.mpPreapprovalId ?? null,
       },
     });
+
+    // Reproduz os audit logs que o BillingService gravaria no fluxo real.
+    // Sem isso o /saas/dashboard mostra Funil zerado mesmo com tenants ativos —
+    // o backend lê esses eventos da tabela audit_log, não do estado atual.
+    for (const event of seed.subscriptionLifecycle ?? []) {
+      await tx.auditLog.create({
+        data: {
+          tenantId: tenant.id,
+          action: event.action,
+          targetType: 'subscription',
+          targetId: subscription.id,
+          createdAt: event.at,
+          diff: event.diff,
+        },
+      });
+    }
 
     // Owner também aparece como Barber[0] (faz cortes). userId vincula owner.
     const barberRows = await Promise.all(
@@ -457,6 +486,13 @@ function tenantATrialing(): TenantSeed {
       status: SubscriptionStatus.trialing,
       trialEndsAt: DateTime.now().plus({ days: 10 }).toJSDate(),
     },
+    subscriptionLifecycle: [
+      {
+        action: AuditActions.SUBSCRIPTION_TRIAL_STARTED,
+        at: DateTime.now().minus({ days: 4 }).toJSDate(),
+        diff: { trialDays: 14 },
+      },
+    ],
     appointments: [
       // passados
       { dayOffset: -7, hour: 10, barberIdx: 0, serviceIdx: 1, customerIdx: 0, status: AppointmentStatus.completed },
@@ -506,6 +542,18 @@ function tenantBActive(): TenantSeed {
       currentPeriodEnd: DateTime.now().plus({ days: 28 }).toJSDate(),
       mpPreapprovalId: 'CONSOLE-SEED-ACTIVE-001',
     },
+    subscriptionLifecycle: [
+      {
+        action: AuditActions.SUBSCRIPTION_TRIAL_STARTED,
+        at: DateTime.now().minus({ days: 30 }).toJSDate(),
+        diff: { trialDays: 14 },
+      },
+      {
+        action: AuditActions.SUBSCRIPTION_ACTIVATED,
+        at: DateTime.now().minus({ days: 6 }).toJSDate(),
+        diff: { mpPreapprovalId: 'CONSOLE-SEED-ACTIVE-001' },
+      },
+    ],
     appointments: [
       { dayOffset: -2, hour: 10, barberIdx: 0, serviceIdx: 0, customerIdx: 0, status: AppointmentStatus.completed },
       { dayOffset: -1, hour: 14, barberIdx: 1, serviceIdx: 1, customerIdx: 1, status: AppointmentStatus.completed },
@@ -540,6 +588,13 @@ function tenantCPastDue(): TenantSeed {
       status: SubscriptionStatus.past_due,
       trialEndsAt: DateTime.now().minus({ days: 3 }).toJSDate(),
     },
+    subscriptionLifecycle: [
+      {
+        action: AuditActions.SUBSCRIPTION_TRIAL_STARTED,
+        at: DateTime.now().minus({ days: 17 }).toJSDate(),
+        diff: { trialDays: 14 },
+      },
+    ],
     appointments: [
       // appointments futuros existem mas storefront fica 404; admin bloqueia c/ 402 exceto billing.
       { dayOffset: 1, hour: 10, barberIdx: 0, serviceIdx: 0, customerIdx: 0, status: AppointmentStatus.pending },
@@ -564,6 +619,18 @@ function tenantDSuspended(): TenantSeed {
       currentPeriodEnd: DateTime.now().plus({ days: 15 }).toJSDate(),
       mpPreapprovalId: 'CONSOLE-SEED-SUSPENDED-001',
     },
+    subscriptionLifecycle: [
+      {
+        action: AuditActions.SUBSCRIPTION_TRIAL_STARTED,
+        at: DateTime.now().minus({ days: 40 }).toJSDate(),
+        diff: { trialDays: 14 },
+      },
+      {
+        action: AuditActions.SUBSCRIPTION_ACTIVATED,
+        at: DateTime.now().minus({ days: 12 }).toJSDate(),
+        diff: { mpPreapprovalId: 'CONSOLE-SEED-SUSPENDED-001' },
+      },
+    ],
     suspended: true,
     appointments: [],
   };
