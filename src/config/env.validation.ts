@@ -74,13 +74,9 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.optional(),
   }),
   MP_BILLING_FREQUENCY: Joi.string().valid('months').default('months'),
-  MP_RETURN_URL: Joi.string()
-    .uri()
-    .when('BILLING_PROVIDER', {
-      is: 'mercadopago',
-      then: Joi.required(),
-      otherwise: Joi.optional().allow(''),
-    }),
+  // MP_RETURN_URL é opcional: MP só aceita HTTPS público em back_url.
+  // Em dev/MVP deixamos vazio (ou http://localhost) e omitimos o campo no payload do MP.
+  MP_RETURN_URL: Joi.string().uri().optional().allow(''),
   MP_API_BASE_URL: Joi.string().uri().default('https://api.mercadopago.com'),
 
   BILLING_NOW_OVERRIDE_MS: Joi.number().integer().optional(),

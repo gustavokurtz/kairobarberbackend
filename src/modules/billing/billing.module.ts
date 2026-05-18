@@ -36,12 +36,18 @@ import { ConsoleBillingProvider } from './providers/console.billing-provider';
           const accessToken = cfg.get<string>('MP_ACCESS_TOKEN');
           const apiBaseUrl = cfg.get<string>('MP_API_BASE_URL');
           const returnUrl = cfg.get<string>('MP_RETURN_URL');
-          if (!accessToken || !apiBaseUrl || !returnUrl) {
+          if (!accessToken || !apiBaseUrl) {
             throw new Error(
-              'MP_ACCESS_TOKEN, MP_API_BASE_URL and MP_RETURN_URL are required when BILLING_PROVIDER=mercadopago',
+              'MP_ACCESS_TOKEN and MP_API_BASE_URL are required when BILLING_PROVIDER=mercadopago',
             );
           }
-          return new MercadopagoBillingProvider({ accessToken, apiBaseUrl, returnUrl });
+          // returnUrl é opcional: MP só aceita HTTPS público em back_url, então em dev/MVP
+          // omitimos. Usuário paga e volta manualmente pro /admin/billing.
+          return new MercadopagoBillingProvider({
+            accessToken,
+            apiBaseUrl,
+            returnUrl: returnUrl || undefined,
+          });
         }
         throw new Error(`Unsupported BILLING_PROVIDER: ${provider}`);
       },

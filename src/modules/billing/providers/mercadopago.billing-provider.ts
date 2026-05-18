@@ -1,4 +1,4 @@
-import { HttpStatus } from '@nestjs/common';
+import { HttpStatus, Logger } from '@nestjs/common';
 import { DomainException } from 'src/common/exceptions/domain.exception';
 import { ErrorCodes } from 'src/common/exceptions/error-codes';
 import {
@@ -14,7 +14,12 @@ import {
 export interface MercadopagoBillingProviderOptions {
   accessToken: string;
   apiBaseUrl: string;
-  returnUrl: string;
+  /**
+   * Quando preenchido com HTTPS público é enviado como `back_url` no preapproval do MP.
+   * Localhost/HTTP é rejeitado pelo MP, então omitimos nesses casos. Sem back_url o usuário
+   * paga e volta manualmente pro `/admin/billing` (que faz sync on-demand).
+   */
+  returnUrl?: string;
   fetchImpl?: typeof fetch;
 }
 
@@ -27,17 +32,17 @@ const VALID_REMOTE_STATUSES: ReadonlySet<RemoteSubscriptionStatus> = new Set([
 
 export class MercadopagoBillingProvider implements BillingProvider {
   private readonly fetchImpl: typeof fetch;
+  private readonly logger = new Logger(MercadopagoBillingProvider.name);
 
   constructor(private readonly opts: MercadopagoBillingProviderOptions) {
     this.fetchImpl = opts.fetchImpl ?? fetch;
   }
 
   async createPreapproval(input: CreatePreapprovalInput): Promise<CreatePreapprovalResult> {
-    const body = {
+    const body: Record<string, unknown> = {
       reason: input.reason,
       external_reference: input.tenantId,
       payer_email: input.payerEmail,
-      back_url: this.opts.returnUrl,
       auto_recurring: {
         frequency: 1,
         frequency_type: input.frequency,
@@ -45,6 +50,9 @@ export class MercadopagoBillingProvider implements BillingProvider {
         currency_id: 'BRL',
       },
     };
+    if (this.opts.returnUrl && /^https:\/\//i.test(this.opts.returnUrl)) {
+      body.back_url = this.opts.returnUrl;
+    }
     const res = await this.request('POST', '/preapproval', body);
     const json = (await res.json()) as { id: string; init_point: string };
     return { preapprovalId: json.id, initPoint: json.init_point };
@@ -124,6 +132,17 @@ export class MercadopagoBillingProvider implements BillingProvider {
     if (res.ok) return res;
 
     const errBody = await safeJson(res);
+    this.logger.warn({
+      event: 'mercadopago.request_failed',
+      method,
+      path,
+      statusCode: res.status,
+      providerMessage: errBody?.message,
+      providerError: errBody?.error,
+      providerCause: errBody?.cause,
+      providerBody: errBody,
+      requestBody: body,
+    });
     if (res.status === 401 || res.status === 403) {
       throw new DomainException({
         code: ErrorCodes.BILLING_PROVIDER_UNAUTHORIZED,
@@ -141,9 +160,11 @@ export class MercadopagoBillingProvider implements BillingProvider {
   }
 }
 
-async function safeJson(res: Response): Promise<{ message?: string } | null> {
+async function safeJson(
+  res: Response,
+): Promise<{ message?: string; error?: string; cause?: unknown } | null> {
   try {
-    return (await res.json()) as { message?: string };
+    return (await res.json()) as { message?: string; error?: string; cause?: unknown };
   } catch {
     return null;
   }
