@@ -10,6 +10,7 @@ import {
 import type { StorageProvider } from 'src/modules/storage/storage.provider';
 import { PhotoRepository } from './repositories/photo.repository';
 import { CreatePhotoDto } from './dto/create-photo.dto';
+import { UpdatePhotoDto } from './dto/update-photo.dto';
 
 const UPLOAD_URL_TTL_SECONDS = 60;
 
@@ -50,6 +51,27 @@ export class PhotosService {
       serviceId: dto.serviceId,
       barberId: dto.barberId,
     });
+  }
+
+  async update(id: string, dto: UpdatePhotoDto) {
+    const photo = await this.repo.findById(id);
+    if (!photo) {
+      throw new DomainException({
+        code: ErrorCodes.PHOTO_NOT_FOUND,
+        message: 'Foto não encontrada.',
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
+    // null explícito = remove vínculo; ausente = mantém.
+    const data: {
+      caption?: string | null;
+      serviceId?: string | null;
+      barberId?: string | null;
+    } = {};
+    if (dto.caption !== undefined) data.caption = dto.caption;
+    if (dto.serviceId !== undefined) data.serviceId = dto.serviceId;
+    if (dto.barberId !== undefined) data.barberId = dto.barberId;
+    return this.repo.update(id, data);
   }
 
   async delete(id: string) {

@@ -21,6 +21,10 @@ export class PhotoRepository {
     return this.prisma.scoped.photo.create({ data: data as Prisma.PhotoCreateInput });
   }
 
+  update(id: string, data: Prisma.PhotoUpdateInput) {
+    return this.prisma.scoped.photo.update({ where: { id }, data });
+  }
+
   softDelete(id: string) {
     return this.prisma.scoped.photo.update({
       where: { id },

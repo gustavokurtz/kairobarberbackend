@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import { CurrentTenant } from 'src/common/decorators/current-tenant.decorator';
 import { PhotosService } from './photos.service';
 import { CreatePhotoUploadUrlDto } from './dto/create-photo-upload-url.dto';
 import { CreatePhotoDto } from './dto/create-photo.dto';
+import { UpdatePhotoDto } from './dto/update-photo.dto';
 
 @Controller('admin/photos')
 @UseGuards(TenantGuard)
@@ -35,6 +37,11 @@ export class PhotosController {
   @HttpCode(HttpStatus.CREATED)
   confirm(@Body() dto: CreatePhotoDto) {
     return this.photos.confirm(dto);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdatePhotoDto) {
+    return this.photos.update(id, dto);
   }
 
   @Delete(':id')
