@@ -21,19 +21,27 @@ import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { SetServiceBarbersDto } from './dto/set-service-barbers.dto';
 
+type WithServiceBarbers = { serviceBarbers?: Array<{ barberId: string }> };
+
+function withBarberIds<T extends WithServiceBarbers>(s: T): T & { barberIds: string[] } {
+  return { ...s, barberIds: s.serviceBarbers?.map((sb) => sb.barberId) ?? [] };
+}
+
 @Controller('admin/services')
 @UseGuards(TenantGuard, RolesGuard)
 export class ServicesController {
   constructor(private readonly services: ServicesService) {}
 
   @Get()
-  list() {
-    return this.services.list();
+  async list() {
+    const all = await this.services.list();
+    return all.map((s) => withBarberIds(s));
   }
 
   @Get(':id')
-  get(@Param('id') id: string) {
-    return this.services.getById(id);
+  async get(@Param('id') id: string) {
+    const s = await this.services.getById(id);
+    return withBarberIds(s);
   }
 
   @Post()
