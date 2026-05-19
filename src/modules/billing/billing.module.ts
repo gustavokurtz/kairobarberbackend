@@ -12,6 +12,7 @@ import { SubscriptionRepository } from './repositories/subscription.repository';
 import { BILLING_PROVIDER, BillingProvider } from './providers/billing.provider';
 import { MercadopagoBillingProvider } from './providers/mercadopago.billing-provider';
 import { ConsoleBillingProvider } from './providers/console.billing-provider';
+import { AsaasBillingCycle, AsaasBillingProvider } from './providers/asaas.billing-provider';
 
 @Module({
   imports: [PrismaModule, RedisModule, BullModule.registerQueue({ name: QUEUE_BILLING })],
@@ -30,6 +31,23 @@ import { ConsoleBillingProvider } from './providers/console.billing-provider';
           return new ConsoleBillingProvider({
             returnUrl:
               cfg.get<string>('MP_RETURN_URL') ?? 'http://localhost:3001/admin/billing/return',
+          });
+        }
+        if (provider === 'asaas') {
+          const apiKey = cfg.get<string>('ASAAS_API_KEY');
+          const apiBaseUrl = cfg.get<string>('ASAAS_API_BASE_URL');
+          const billingCycle = cfg.get<AsaasBillingCycle>('ASAAS_BILLING_CYCLE') ?? 'MONTHLY';
+          const returnUrl = cfg.get<string>('ASAAS_RETURN_URL');
+          if (!apiKey || !apiBaseUrl) {
+            throw new Error(
+              'ASAAS_API_KEY and ASAAS_API_BASE_URL are required when BILLING_PROVIDER=asaas',
+            );
+          }
+          return new AsaasBillingProvider({
+            apiKey,
+            apiBaseUrl,
+            billingCycle,
+            returnUrl: returnUrl || undefined,
           });
         }
         if (provider === 'mercadopago') {

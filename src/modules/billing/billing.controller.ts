@@ -8,6 +8,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { UserRole } from '@prisma/client';
 import { AllowInactiveSubscription } from 'src/common/decorators/allow-inactive-subscription.decorator';
 import { CurrentTenant } from 'src/common/decorators/current-tenant.decorator';
@@ -37,6 +38,10 @@ export class BillingController {
   @AllowInactiveSubscription()
   @Roles(UserRole.tenant_owner)
   @HttpCode(HttpStatus.OK)
+  // Cria assinatura no gateway externo (com side-effects financeiros).
+  // 3 tentativas/min/IP previnem múltiplas subscriptions órfãs por cliques repetidos no front
+  // ou abuso de owner autenticado.
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   async checkout(
     @CurrentTenant() tenantId: string,
     @CurrentUser() user: AuthenticatedUser | undefined,
@@ -48,17 +53,19 @@ export class BillingController {
     const [tenant, userRecord] = await Promise.all([
       this.prisma.tenant.findUniqueOrThrow({
         where: { id: tenantId },
-        select: { slug: true },
+        select: { slug: true, documentNumber: true },
       }),
       this.prisma.user.findUniqueOrThrow({
         where: { id: user.id },
-        select: { email: true },
+        select: { email: true, name: true },
       }),
     ]);
     return this.billing.createCheckout({
       tenantId,
       tenantSlug: tenant.slug,
       ownerEmail: userRecord.email,
+      ownerName: userRecord.name,
+      ownerCpfCnpj: tenant.documentNumber ?? undefined,
     });
   }
 

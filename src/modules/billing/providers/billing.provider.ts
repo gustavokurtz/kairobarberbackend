@@ -6,6 +6,8 @@ export interface CreatePreapprovalInput {
   tenantId: string;
   tenantSlug: string;
   payerEmail: string;
+  payerName: string;
+  payerCpfCnpj?: string;
   reason: string; // título visível pro payer ("Assinatura KairoBarber - {slug}")
   amountCents: number;
   frequency: 'months';

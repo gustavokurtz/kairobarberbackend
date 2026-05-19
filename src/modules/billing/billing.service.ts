@@ -169,6 +169,8 @@ export class BillingService {
     tenantId: string;
     tenantSlug: string;
     ownerEmail: string;
+    ownerName: string;
+    ownerCpfCnpj?: string;
   }): Promise<{ initPoint: string }> {
     const sub = await this.repo.findByTenantId(input.tenantId);
     if (!sub) {
@@ -186,11 +188,47 @@ export class BillingService {
       });
     }
 
-    const amountCents = this.config.get<number>('MP_PLAN_AMOUNT_CENTS') ?? 4990;
+    const provider = this.config.get<string>('BILLING_PROVIDER');
+    // Asaas exige CPF/CNPJ do pagador pra emitir PIX/boleto/cobrança recorrente.
+    // Sem documento não dá pra continuar. Front deve mostrar mensagem clara e levar pra
+    // tela de edição do tenant.
+    if (provider === 'asaas' && !input.ownerCpfCnpj) {
+      throw new DomainException({
+        code: ErrorCodes.TENANT_DOCUMENT_REQUIRED,
+        message:
+          'CPF ou CNPJ da barbearia é obrigatório pra assinar. Cadastre em /admin/perfil antes de iniciar o checkout.',
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+      });
+    }
+
+    // Cancela preapproval anterior (se existir) ANTES de criar um novo, pra não deixar
+    // subscriptions órfãs ativas no gateway gerando cobrança duplicada no próximo ciclo.
+    // cancelPreapproval é idempotente em 404, então é seguro chamar mesmo se o id já sumiu lá.
+    if (sub.mpPreapprovalId) {
+      try {
+        await this.provider.cancelPreapproval(sub.mpPreapprovalId);
+      } catch (err) {
+        // Não falhamos o novo checkout por causa do cancel; logamos e seguimos.
+        // O cron de sync vai detectar o estado real depois.
+        this.logger.warn({
+          event: 'subscription.previous_preapproval_cancel_failed',
+          tenantId: input.tenantId,
+          previousPreapprovalId: sub.mpPreapprovalId,
+          error: (err as Error).message,
+        });
+      }
+    }
+
+    const amountCents =
+      (provider === 'asaas'
+        ? this.config.get<number>('ASAAS_PLAN_AMOUNT_CENTS')
+        : this.config.get<number>('MP_PLAN_AMOUNT_CENTS')) ?? 4990;
     const created = await this.provider.createPreapproval({
       tenantId: input.tenantId,
       tenantSlug: input.tenantSlug,
       payerEmail: input.ownerEmail,
+      payerName: input.ownerName,
+      payerCpfCnpj: input.ownerCpfCnpj,
       reason: `Assinatura KairoBarber - ${input.tenantSlug}`,
       amountCents,
       frequency: 'months',

@@ -56,7 +56,7 @@ export const envValidationSchema = Joi.object({
 
   REDIS_URL: Joi.string().uri().required(),
 
-  BILLING_PROVIDER: Joi.string().valid('console', 'mercadopago').default('console'),
+  BILLING_PROVIDER: Joi.string().valid('console', 'mercadopago', 'asaas').default('console'),
   BILLING_TRIAL_DAYS: Joi.number().integer().min(0).max(60).default(14),
   BILLING_PAST_DUE_GRACE_DAYS: Joi.number().integer().min(0).max(60).default(7),
   BILLING_SYNC_CRON: Joi.string().default('0 6,18 * * *'),
@@ -78,6 +78,29 @@ export const envValidationSchema = Joi.object({
   // Em dev/MVP deixamos vazio (ou http://localhost) e omitimos o campo no payload do MP.
   MP_RETURN_URL: Joi.string().uri().optional().allow(''),
   MP_API_BASE_URL: Joi.string().uri().default('https://api.mercadopago.com'),
+
+  // Asaas (BILLING_PROVIDER=asaas)
+  ASAAS_API_KEY: Joi.string().when('BILLING_PROVIDER', {
+    is: 'asaas',
+    then: Joi.required(),
+    otherwise: Joi.optional().allow(''),
+  }),
+  ASAAS_API_BASE_URL: Joi.string()
+    .uri()
+    .when('BILLING_PROVIDER', {
+      is: 'asaas',
+      then: Joi.required(),
+      otherwise: Joi.optional().allow(''),
+    }),
+  ASAAS_PLAN_AMOUNT_CENTS: Joi.number().integer().min(100).when('BILLING_PROVIDER', {
+    is: 'asaas',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  ASAAS_BILLING_CYCLE: Joi.string()
+    .valid('WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMIANNUALLY', 'YEARLY')
+    .default('MONTHLY'),
+  ASAAS_RETURN_URL: Joi.string().uri().optional().allow(''),
 
   BILLING_NOW_OVERRIDE_MS: Joi.number().integer().optional(),
 
@@ -142,7 +165,7 @@ export type AppEnv = {
   R2_BUCKET?: string;
   SENTRY_DSN?: string;
   REDIS_URL: string;
-  BILLING_PROVIDER: 'console' | 'mercadopago';
+  BILLING_PROVIDER: 'console' | 'mercadopago' | 'asaas';
   BILLING_TRIAL_DAYS: number;
   BILLING_PAST_DUE_GRACE_DAYS: number;
   BILLING_SYNC_CRON: string;
@@ -153,6 +176,11 @@ export type AppEnv = {
   MP_BILLING_FREQUENCY: 'months';
   MP_RETURN_URL?: string;
   MP_API_BASE_URL: string;
+  ASAAS_API_KEY?: string;
+  ASAAS_API_BASE_URL?: string;
+  ASAAS_PLAN_AMOUNT_CENTS?: number;
+  ASAAS_BILLING_CYCLE: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUALLY' | 'YEARLY';
+  ASAAS_RETURN_URL?: string;
   BILLING_NOW_OVERRIDE_MS?: number;
   SAAS_OWNER_EMAIL?: string;
   SAAS_OWNER_PASSWORD?: string;

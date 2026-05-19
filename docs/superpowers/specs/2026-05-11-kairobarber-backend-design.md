@@ -62,6 +62,7 @@ O autor já tentou anteriormente um monorepo full-stack e nada saiu pronto direi
 | Email | Resend | DX boa, free tier generoso. |
 | IA — análise + geração | OpenAI (GPT-4o vision + gpt-image-1) | Provider único, custo controlado. Trade-off conhecido: edição de imagem inferior a modelos especializados; aceitável pro MVP. Abstraído atrás de interface `VisagismProvider` para troca futura. |
 | Mercado Pago integração | **Polling (sem webhook)** | Decisão do autor: shipa rápido sem configurar webhook no MP. Trade-off: status eventualmente consistente. Mitigado com sync on-demand pós-checkout + cron 2x/dia. |
+| Billing provider primário | **Asaas** (Mercado Pago vira fallback/legacy) | Decisão tomada em 2026-05-19 após bloqueio no checkout do MP (Confirmar desabilitado). MP **não suporta PIX em assinatura recorrente** (apenas cartão de crédito), limitação estrutural do produto Assinaturas MP. Asaas aceita PIX + cartão + boleto recorrentes nativamente, aceita PF, libera produção rápido. Interface `BillingProvider` já abstraía gateway — código de domínio inalterado, apenas mais um implementador. MP fica em standby (env `BILLING_PROVIDER=mercadopago`) pra rollback rápido se algo no Asaas falhar. |
 | Plano comercial | Plano único + trial de 14 dias | Decisão do autor. Sem feature gating complexa no MVP. |
 | Cota de IA | 100 consultas/barbeiro/mês (ajustável) | Soft block ao estourar. Counter resetado por cron mensal. |
 | Modelo de cliente final | Híbrido (guest + claim opcional) | Sem atrito no agendamento; histórico estruturado via dedup por `(tenantId, phone)`; conta criada via magic link se cliente quiser área pessoal. |
@@ -113,14 +114,17 @@ Cada fase é encerrada por um critério verificável. Cada fase ganhará seu pr�
 
 **Pronto quando:** cliente faz booking ponta a ponta sem login, recebe email, consegue cancelar pelo link. Barbeiro vê o agendamento na agenda.
 
-### Fase 4 — Billing (Mercado Pago via polling)
+### Fase 4 — Billing (Asaas via polling; MP fallback)
 - Módulo: `billing`.
-- Integração MP (criar preapproval, sync de status).
+- Integração Asaas como provider primário (criar customer + subscription, sync de status) — aceita PIX/cartão/boleto recorrentes.
+- Mercado Pago mantido por trás da mesma interface `BillingProvider` (env `BILLING_PROVIDER=mercadopago`) pra rollback.
 - Endpoint `/admin/billing/checkout` e `/admin/billing/sync`.
-- Cron `billing-sync` 2x/dia + cron `trial-check` diário.
+- Cron `billing-sync` 2x/dia + cron `trial-check` diário (continua polling-based).
 - Middleware que bloqueia storefront pública e admin se subscription `cancelled`/`past_due` > N dias.
 
-**Pronto quando:** barbeiro completa fluxo de pagamento, status local sincroniza, gating de tenant inativo funciona.
+**Pronto quando:** barbeiro completa fluxo de pagamento (PIX **ou** cartão), status local sincroniza, gating de tenant inativo funciona.
+
+> **Nota terminológica**: a interface `BillingProvider` usa nomenclatura herdada do MP (`preapprovalId`, `createPreapproval`). Para Asaas isso é semanticamente `subscriptionId` / `createSubscription`. Mantemos o nome pra evitar churn em colunas DB (`Subscription.mpPreapprovalId`) e callsites. Trate como identifier opaco do provider corrente.
 
 ### Fase 5 — Dashboard do dono do SaaS
 - Módulo: `saas-admin`.

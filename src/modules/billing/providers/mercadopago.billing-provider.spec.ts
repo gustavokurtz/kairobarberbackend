@@ -65,6 +65,7 @@ describe('MercadopagoBillingProvider', () => {
         tenantId: 't1',
         tenantSlug: 'demo',
         payerEmail: 'owner@x.com',
+        payerName: 'Owner X',
         reason: 'Assinatura KairoBarber - demo',
         amountCents: 4990,
         frequency: 'months',
@@ -99,11 +100,37 @@ describe('MercadopagoBillingProvider', () => {
           tenantId: 't1',
           tenantSlug: 'd',
           payerEmail: 'x@x.com',
+          payerName: 'X',
           reason: 'r',
           amountCents: 4990,
           frequency: 'months',
         }),
       ).rejects.toMatchObject({ opts: { code: 'BILLING_PROVIDER_UNAUTHORIZED' } });
+    });
+
+    it('logs de erro não vazam PII (payer_email)', async () => {
+      fetchMock.mockResolvedValueOnce(jsonRes(400, { message: 'bad' }));
+      const warnSpy = jest
+        .spyOn((provider as unknown as { logger: { warn: jest.Mock } }).logger, 'warn')
+        .mockImplementation(() => undefined);
+
+      await expect(
+        provider.createPreapproval({
+          tenantId: 't1',
+          tenantSlug: 'd',
+          payerEmail: 'leak@x.com',
+          payerName: 'Owner',
+          reason: 'r',
+          amountCents: 4990,
+          frequency: 'months',
+        }),
+      ).rejects.toBeDefined();
+
+      const logged = warnSpy.mock.calls[0]?.[0] as { requestBody: Record<string, unknown> };
+      expect(logged.requestBody.payer_email).toBe('[redacted]');
+      expect(logged.requestBody.external_reference).toBe('t1');
+
+      warnSpy.mockRestore();
     });
 
     it('5xx do MP vira BILLING_PROVIDER_ERROR', async () => {
@@ -113,6 +140,7 @@ describe('MercadopagoBillingProvider', () => {
           tenantId: 't1',
           tenantSlug: 'd',
           payerEmail: 'x@x.com',
+          payerName: 'X',
           reason: 'r',
           amountCents: 4990,
           frequency: 'months',

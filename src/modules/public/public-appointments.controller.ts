@@ -51,10 +51,7 @@ export class PublicAppointmentsController {
   @Post('public/:slug/appointments')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.CREATED)
-  async create(
-    @CurrentTenant() tenantId: string,
-    @Body() dto: CreatePublicAppointmentDto,
-  ) {
+  async create(@CurrentTenant() tenantId: string, @Body() dto: CreatePublicAppointmentDto) {
     const { customer, claimPlainToken } = await this.customers.findOrCreateByPhone(dto.customer);
 
     const { appointment: aptRaw, cancellationPlainToken } =

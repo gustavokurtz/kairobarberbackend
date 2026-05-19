@@ -141,7 +141,7 @@ export class MercadopagoBillingProvider implements BillingProvider {
       providerError: errBody?.error,
       providerCause: errBody?.cause,
       providerBody: errBody,
-      requestBody: body,
+      requestBody: sanitizeBody(body),
     });
     if (res.status === 401 || res.status === 403) {
       throw new DomainException({
@@ -158,6 +158,27 @@ export class MercadopagoBillingProvider implements BillingProvider {
       details: { statusCode: res.status, providerMessage: errBody?.message },
     });
   }
+}
+
+const PII_FIELDS: ReadonlySet<string> = new Set([
+  'payer_email',
+  'card_token_id',
+  'payer',
+  'card',
+]);
+
+function sanitizeBody(body: unknown): unknown {
+  if (body === undefined || body === null) return body;
+  if (typeof body !== 'object') return body;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body as Record<string, unknown>)) {
+    if (PII_FIELDS.has(k)) {
+      out[k] = '[redacted]';
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
 }
 
 async function safeJson(
