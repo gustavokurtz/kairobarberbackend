@@ -84,16 +84,14 @@ export class BillingService {
   }
 
   async applyRemoteState(local: Subscription, remote: RemoteSubscription): Promise<void> {
-    if (local.status === SubscriptionStatus.cancelled) {
-      // Defesa: nunca regredir de cancelled.
-      await this.repo.update(local.tenantId, {
-        status: SubscriptionStatus.cancelled,
-        nextSyncAt: null,
-        lastSyncedAt: this.now(),
-      });
-      return;
-    }
-
+    // Antes existia um guard "nunca regredir de cancelled" que retornava cedo.
+    // Mas combinado com o fix de createCheckout (que mantém status cancelled durante a
+    // espera de pagamento), isso travava reativação: user clicava Renovar, pagava, sync
+    // detectava 'authorized' no Asaas, mas o guard mantinha local cancelled — pagamento
+    // ficava preso eternamente. Removido. A defesa real contra "reviver cancelled sem
+    // motivo" é o controle de mpPreapprovalId: sem ele, syncSubscription vira no-op
+    // (linha ~268) e cron findDueForSync filtra cancelled. Só chega aqui se houve
+    // checkout explícito que setou novo mpPreapprovalId.
     const mappedStatus = mapRemoteStatus(remote.status, local.status);
     const nextSyncAt = computeNextSyncAt(mappedStatus, this.now());
 
@@ -349,8 +347,27 @@ export class BillingService {
     const cutoff = new Date(now.getTime() - graceDays * 24 * 60 * 60 * 1000);
     const overGrace = await this.repo.findPastDueOverGrace(cutoff);
     for (const sub of overGrace) {
+      // Cancela no gateway ANTES de marcar cancelled local. Sem isso, a subscription
+      // continua viva no Asaas gerando cobranças mensais — e se o cliente pagar a fatura
+      // antiga via link do email do Asaas e depois clicar "Reativar" no nosso painel,
+      // gera cobrança duplicada (a antiga + a nova do checkout). Falha de cancelPreapproval
+      // não bloqueia: idempotente em 404; outros erros são logados e o estado local segue.
+      // mpPreapprovalId fica zerado pra evitar que próximo sync tente buscar no gateway.
+      if (sub.mpPreapprovalId) {
+        try {
+          await this.provider.cancelPreapproval(sub.mpPreapprovalId);
+        } catch (err) {
+          this.logger.warn({
+            event: 'subscription.grace_cancel_gateway_failed',
+            tenantId: sub.tenantId,
+            mpPreapprovalId: sub.mpPreapprovalId,
+            error: (err as Error).message,
+          });
+        }
+      }
       await this.repo.update(sub.tenantId, {
         status: SubscriptionStatus.cancelled,
+        mpPreapprovalId: null,
         nextSyncAt: null,
       });
       this.logger.log({

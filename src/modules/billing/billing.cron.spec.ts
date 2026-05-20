@@ -132,23 +132,44 @@ describe('BillingService — crons', () => {
       );
     });
 
-    it('past_due > graça (default 7d) → cancelled, cutoff = now - 7d', async () => {
+    it('past_due > graça (default 7d) → cancela no gateway + cancelled local + mpPreapprovalId null', async () => {
       repo.findExpiredTrials.mockResolvedValue([]);
       repo.findPastDueOverGrace.mockImplementation((cutoff: Date) => {
         expect(cutoff).toEqual(new Date('2026-05-05T12:00:00Z'));
         return Promise.resolve([{ tenantId: 't2', status: 'past_due', mpPreapprovalId: 'PRE-2' }]);
       });
+      provider.cancelPreapproval.mockResolvedValue(undefined);
+      repo.update.mockResolvedValue({});
+
+      const stats = await svc.runTrialCheck();
+
+      expect(stats).toEqual({ trialExpired: 0, graceExpired: 1 });
+      // Evita cobrança duplicada: cancela no gateway antes de marcar local cancelled.
+      expect(provider.cancelPreapproval).toHaveBeenCalledWith('PRE-2');
+      expect(repo.update).toHaveBeenCalledWith(
+        't2',
+        expect.objectContaining({
+          status: 'cancelled',
+          mpPreapprovalId: null,
+          nextSyncAt: null,
+        }),
+      );
+    });
+
+    it('falha do gateway no cancel de grace não bloqueia transição local pra cancelled', async () => {
+      repo.findExpiredTrials.mockResolvedValue([]);
+      repo.findPastDueOverGrace.mockResolvedValue([
+        { tenantId: 't3', status: 'past_due', mpPreapprovalId: 'PRE-3' },
+      ]);
+      provider.cancelPreapproval.mockRejectedValue(new Error('upstream 503'));
       repo.update.mockResolvedValue({});
 
       const stats = await svc.runTrialCheck();
 
       expect(stats).toEqual({ trialExpired: 0, graceExpired: 1 });
       expect(repo.update).toHaveBeenCalledWith(
-        't2',
-        expect.objectContaining({
-          status: 'cancelled',
-          nextSyncAt: null,
-        }),
+        't3',
+        expect.objectContaining({ status: 'cancelled', mpPreapprovalId: null }),
       );
     });
   });

@@ -218,17 +218,21 @@ describe('BillingService — core', () => {
       );
     });
 
-    it('nunca regride de cancelled', async () => {
+    // O guard "nunca regride de cancelled" foi removido em 2026-05-19. Razão:
+    // travava reativação — após cancelled + createCheckout + pagamento, sync detectava
+    // 'authorized' mas o guard mantinha cancelled, pagamento ficava preso eternamente.
+    // A defesa real contra reviver cancelled sem motivo é o controle de mpPreapprovalId
+    // (zerado quando vira cancelled via runTrialCheck), que faz syncSubscription virar
+    // no-op. Só chega aqui se houve checkout explícito que setou novo mpPreapprovalId.
+    it('cancelled local + remoto authorized → permite reativação (novo checkout pago)', async () => {
       await svc.applyRemoteState({ ...baseSub, status: 'cancelled' } as never, {
-        preapprovalId: 'PRE-1',
+        preapprovalId: 'PRE-NEW',
         status: 'authorized',
-        nextPaymentDate: new Date(),
+        nextPaymentDate: new Date('2026-06-12T12:00:00Z'),
       });
       expect(repo.update).toHaveBeenCalledWith(
         't1',
-        expect.objectContaining({
-          status: 'cancelled',
-        }),
+        expect.objectContaining({ status: 'active' }),
       );
     });
   });
