@@ -127,12 +127,18 @@ describe('BillingService — checkout/sync', () => {
       expect(provider.cancelPreapproval.mock.invocationCallOrder[0]).toBeLessThan(
         provider.createPreapproval.mock.invocationCallOrder[0],
       );
+      // createCheckout NÃO deve sobrescrever o status com 'trialing' — antes dava efeito
+      // colateral em past_due/cancelled (mostrava trialEndsAt antigo na UI). Mantemos o status
+      // atual; sync detecta pagamento e promove pra active.
       expect(repo.update).toHaveBeenCalledWith(
         't1',
         expect.objectContaining({
           mpPreapprovalId: 'PRE-NEW2',
-          status: 'trialing', // retorna pro fluxo trial enquanto MP confirma
         }),
+      );
+      expect(repo.update).toHaveBeenCalledWith(
+        't1',
+        expect.not.objectContaining({ status: 'trialing' }),
       );
     });
 

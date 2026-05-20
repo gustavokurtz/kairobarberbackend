@@ -235,9 +235,14 @@ export class BillingService {
     });
 
     const nextSyncAt = new Date(this.now().getTime() + 60 * 60 * 1000); // sondagem pós-checkout em 1h
+    // NÃO sobrescrevemos o status pra `trialing`. Antes fazíamos isso como "aguardando
+    // confirmação", mas dava efeito colateral: tenants em past_due/cancelled que clicavam
+    // Renovar ganhavam um status "trialing" falso, exibindo o `trialEndsAt` antigo (do
+    // trial original já consumido) — induzia o usuário a achar que ganhou trial novo.
+    // Agora mantemos o status atual; o sync (cron + on-demand) detecta o pagamento e
+    // promove pra `active` quando confirmar. Trial só existe no signup.
     await this.repo.update(input.tenantId, {
       mpPreapprovalId: created.preapprovalId,
-      status: SubscriptionStatus.trialing,
       nextSyncAt,
     });
 
