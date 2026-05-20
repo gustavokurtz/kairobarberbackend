@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1.6
 
 FROM node:20-alpine AS base
+# openssl: o Prisma engine precisa pra rodar contra Postgres TLS.
+# ca-certificates: handshake com R2/Asaas/MP/Resend.
+RUN apk add --no-cache openssl ca-certificates
 RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 WORKDIR /app
 
@@ -17,12 +20,13 @@ RUN pnpm build
 
 FROM base AS runtime
 ENV NODE_ENV=production
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/prisma ./prisma
-COPY package.json pnpm-lock.yaml .npmrc ./
-RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
-    pnpm install --prod --frozen-lockfile \
-    && pnpm exec prisma generate
+# Copia node_modules pronto (com prisma CLI + client gerado) do stage build.
+# Alternativa "pnpm install --prod" quebra porque o prisma CLI é devDependency.
+# --chown=node:node pra Prisma conseguir escrever engines em runtime.
+COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/prisma ./prisma
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node package.json pnpm-lock.yaml .npmrc ./
 USER node
 EXPOSE 3000
 CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main.js"]
