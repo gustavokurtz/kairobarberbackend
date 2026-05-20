@@ -4,8 +4,9 @@
  * via web. Cobre todas as audiências e estados de subscription/tenant.
  *
  * Modos:
- *   pnpm prisma:seed                # idempotente: pula tenants que já existem
- *   SEED_RESET=true pnpm prisma:seed # apaga TUDO antes (dev only)
+ *   pnpm prisma:seed                       # idempotente: pula tenants que já existem
+ *   SEED_RESET=true pnpm prisma:seed       # apaga TUDO antes (dev only)
+ *   SEED_OWNER_ONLY=true pnpm prisma:seed  # cria apenas o saas_owner (prod bootstrap)
  *
  * Bloqueado em produção sem ALLOW_PROD_SEED=true.
  */
@@ -490,7 +491,7 @@ function tenantATrialing(): TenantSeed {
       {
         action: AuditActions.SUBSCRIPTION_TRIAL_STARTED,
         at: DateTime.now().minus({ days: 4 }).toJSDate(),
-        diff: { trialDays: 14 },
+        diff: { trialDays: 3 },
       },
     ],
     appointments: [
@@ -546,7 +547,7 @@ function tenantBActive(): TenantSeed {
       {
         action: AuditActions.SUBSCRIPTION_TRIAL_STARTED,
         at: DateTime.now().minus({ days: 30 }).toJSDate(),
-        diff: { trialDays: 14 },
+        diff: { trialDays: 3 },
       },
       {
         action: AuditActions.SUBSCRIPTION_ACTIVATED,
@@ -592,7 +593,7 @@ function tenantCPastDue(): TenantSeed {
       {
         action: AuditActions.SUBSCRIPTION_TRIAL_STARTED,
         at: DateTime.now().minus({ days: 17 }).toJSDate(),
-        diff: { trialDays: 14 },
+        diff: { trialDays: 3 },
       },
     ],
     appointments: [
@@ -623,7 +624,7 @@ function tenantDSuspended(): TenantSeed {
       {
         action: AuditActions.SUBSCRIPTION_TRIAL_STARTED,
         at: DateTime.now().minus({ days: 40 }).toJSDate(),
-        diff: { trialDays: 14 },
+        diff: { trialDays: 3 },
       },
       {
         action: AuditActions.SUBSCRIPTION_ACTIVATED,
@@ -647,6 +648,7 @@ async function main(): Promise<void> {
 
   const prisma = new PrismaClient();
   const reset = process.env.SEED_RESET === 'true';
+  const ownerOnly = process.env.SEED_OWNER_ONLY === 'true';
   const results: SeededTenantResult[] = [];
 
   try {
@@ -658,6 +660,12 @@ async function main(): Promise<void> {
     }
 
     const saasOwner = await ensureSaasOwner(prisma);
+
+    if (ownerOnly) {
+      console.log('[seed] SEED_OWNER_ONLY=true — pulando tenants/clientes/AI/audit demo.');
+      printOwnerOnlySummary(saasOwner);
+      return;
+    }
 
     for (const fn of [tenantATrialing, tenantBActive, tenantCPastDue, tenantDSuspended]) {
       const r = await seedTenant(prisma, fn());
@@ -671,6 +679,20 @@ async function main(): Promise<void> {
   } finally {
     await prisma.$disconnect();
   }
+}
+
+function printOwnerOnlySummary(saasOwner: { email: string; password: string }): void {
+  const line = '─'.repeat(70);
+  const appUrl = process.env.APP_PUBLIC_URL ?? 'http://localhost:3001';
+  console.log('\n' + line);
+  console.log('  KAIROBARBER — SEED (owner only)');
+  console.log(line);
+  console.log('\n  SaaS Owner ───────────────────────────────────────────────────────');
+  console.log(`    Login: ${saasOwner.email}`);
+  console.log(`    Senha: ${saasOwner.password}`);
+  console.log(`    URL:   ${appUrl}/saas`);
+  console.log('\n  Nenhum tenant/cliente foi criado.');
+  console.log(line + '\n');
 }
 
 function printSummary(

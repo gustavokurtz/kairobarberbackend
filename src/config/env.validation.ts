@@ -57,7 +57,7 @@ export const envValidationSchema = Joi.object({
   REDIS_URL: Joi.string().uri().required(),
 
   BILLING_PROVIDER: Joi.string().valid('console', 'mercadopago', 'asaas').default('console'),
-  BILLING_TRIAL_DAYS: Joi.number().integer().min(0).max(60).default(14),
+  BILLING_TRIAL_DAYS: Joi.number().integer().min(0).max(60).default(3),
   BILLING_PAST_DUE_GRACE_DAYS: Joi.number().integer().min(0).max(60).default(7),
   BILLING_SYNC_CRON: Joi.string().default('0 6,18 * * *'),
   BILLING_TRIAL_CHECK_CRON: Joi.string().default('15 6 * * *'),
