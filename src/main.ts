@@ -15,7 +15,27 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
 
   app.use(helmet());
-  app.enableCors({ origin: true, credentials: true });
+
+  // CORS allowlist via env (CSV). Vazio = CORS desabilitado (api só acessível pelo
+  // proxy server-side do front, fluxo padrão). Reflete somente origens listadas.
+  const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0);
+  if (corsOrigins.length > 0) {
+    app.enableCors({
+      origin: (
+        origin: string | undefined,
+        callback: (err: Error | null, allow?: boolean) => void,
+      ) => {
+        // Sem header Origin (curl, server-to-server) → libera.
+        if (!origin) return callback(null, true);
+        if (corsOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error(`CORS: origem não permitida (${origin})`), false);
+      },
+      credentials: true,
+    });
+  }
 
   // Wrap every request in an AsyncLocalStorage context so JwtAuthGuard can
   // populate tenantId and PrismaService.scoped picks it up automatically.

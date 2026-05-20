@@ -5,6 +5,10 @@ export const envValidationSchema = Joi.object({
   PORT: Joi.number().default(3000),
   APP_URL: Joi.string().uri().required(),
   APP_PUBLIC_URL: Joi.string().uri().required(),
+  // CSV de origens permitidas pelo CORS. Sem valor → CORS desabilitado (api só acessível
+  // via proxy server-side do front, que é o fluxo padrão). Use vírgula sem espaços.
+  // Ex.: "http://localhost:13001,https://kairobarber.lunarlabz.com.br"
+  CORS_ORIGINS: Joi.string().allow('').default(''),
   LOG_LEVEL: Joi.string().valid('fatal', 'error', 'warn', 'info', 'debug', 'trace').default('info'),
 
   DATABASE_URL: Joi.string().uri().required(),
@@ -145,6 +149,7 @@ export type AppEnv = {
   PORT: number;
   APP_URL: string;
   APP_PUBLIC_URL: string;
+  CORS_ORIGINS: string;
   LOG_LEVEL: string;
   DATABASE_URL: string;
   JWT_ACCESS_SECRET: string;
