@@ -26,7 +26,9 @@ ENV NODE_ENV=production
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/prisma ./prisma
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
-COPY --chown=node:node package.json pnpm-lock.yaml .npmrc ./
+# src/ só é necessário pro ts-node do prisma/seed.ts em runtime (importa audit-actions).
+COPY --from=build --chown=node:node /app/src ./src
+COPY --chown=node:node package.json pnpm-lock.yaml .npmrc tsconfig.json tsconfig.build.json ./
 USER node
 EXPOSE 3000
 CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main.js"]
