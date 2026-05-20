@@ -153,6 +153,12 @@ describe('BillingService — core', () => {
       updatedAt: new Date(),
     };
 
+    beforeEach(() => {
+      // Concurrency guard re-fetch: por padrão, current DB state bate com o `local`
+      // que cada teste passa. Casos de race fazem override próprio.
+      repo.findByTenantId.mockImplementation(async () => baseSub);
+    });
+
     it('authorized → active e seta currentPeriodEnd + nextSyncAt = now+24h', async () => {
       const remote: RemoteSubscription = {
         preapprovalId: 'PRE-1',
@@ -173,6 +179,7 @@ describe('BillingService — core', () => {
     });
 
     it('paused → past_due', async () => {
+      repo.findByTenantId.mockResolvedValue({ ...baseSub, status: 'active' });
       repo.update.mockResolvedValue({});
       await svc.applyRemoteState({ ...baseSub, status: 'active' } as never, {
         preapprovalId: 'PRE-1',
@@ -225,8 +232,13 @@ describe('BillingService — core', () => {
     // (zerado quando vira cancelled via runTrialCheck), que faz syncSubscription virar
     // no-op. Só chega aqui se houve checkout explícito que setou novo mpPreapprovalId.
     it('cancelled local + remoto authorized → permite reativação (novo checkout pago)', async () => {
+      repo.findByTenantId.mockResolvedValue({
+        ...baseSub,
+        status: 'cancelled',
+        mpPreapprovalId: 'PRE-1',
+      });
       await svc.applyRemoteState({ ...baseSub, status: 'cancelled' } as never, {
-        preapprovalId: 'PRE-NEW',
+        preapprovalId: 'PRE-1',
         status: 'authorized',
         nextPaymentDate: new Date('2026-06-12T12:00:00Z'),
       });
@@ -234,6 +246,28 @@ describe('BillingService — core', () => {
         't1',
         expect.objectContaining({ status: 'active' }),
       );
+    });
+
+    it('skip silencioso se mpPreapprovalId mudou entre read e apply (race com createCheckout)', async () => {
+      // Simula: cron leu sub com mpPreapprovalId='PRE-OLD', durante o fetchPreapproval
+      // outro fluxo (createCheckout do user) atualizou pra 'PRE-NEW'. Aplicar o estado
+      // remoto agora sobrescreveria o NEW. Guard detecta divergência e pula.
+      repo.findByTenantId.mockResolvedValue({ ...baseSub, mpPreapprovalId: 'PRE-NEW' });
+      await svc.applyRemoteState(
+        { ...baseSub, mpPreapprovalId: 'PRE-OLD' } as never,
+        { preapprovalId: 'PRE-OLD', status: 'cancelled', nextPaymentDate: null },
+      );
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it('skip se subscription foi deletada entre read e apply', async () => {
+      repo.findByTenantId.mockResolvedValue(null);
+      await svc.applyRemoteState(baseSub, {
+        preapprovalId: 'PRE-1',
+        status: 'authorized',
+        nextPaymentDate: null,
+      });
+      expect(repo.update).not.toHaveBeenCalled();
     });
   });
 

@@ -115,7 +115,25 @@ Header de auth: `access_token: $aact_...` (não é `Authorization: Bearer`).
 | 🟡 Médio | **Re-checkout criava subscriptions órfãs**: `createCheckout` em status `past_due`/`cancelled` sobrescrevia `mpPreapprovalId` no DB sem cancelar o anterior no gateway → assinatura antiga seguia ativa lá, cobrando no próximo ciclo. Bug financeiro (não exploit, mas owner autenticado podia disparar). | `BillingService.createCheckout` agora chama `provider.cancelPreapproval(sub.mpPreapprovalId)` ANTES de criar novo. Idempotente em 404. Falha de cancel não bloqueia o novo checkout (logada como warn). |
 | 🟡 Médio | **Sem rate limit específico em `/admin/billing/checkout`**: throttle global de 300/min permitia abuso (mesmo owner autenticado podia disparar várias subscriptions). | `@Throttle({ default: { limit: 3, ttl: 60_000 } })` em [billing.controller.ts](../../src/modules/billing/billing.controller.ts). |
 
+### 11.1.b Achados corrigidos em rodada de code review pós-teste real (2026-05-19 tarde)
+
+| Sev | Achado | Fix |
+|---|---|---|
+| 🔴 Crítico | **`applyRemoteState` travava reativação de cancelled**: o guard "nunca regredir de cancelled" combinado com o fix de `createCheckout` (que mantém status atual durante espera de pagamento) fazia: user cancelled → Renovar → paga → sync detecta `authorized` → guard mantém cancelled → pagamento fica preso pra sempre. | Guard removido. Defesa real contra "reviver cancelled" é o controle de `mpPreapprovalId`: sem ID válido o sync vira no-op; só chega ao apply se houve checkout explícito. |
+| 🟡 Médio | **`runTrialCheck` não cancelava no gateway ao mover past_due → cancelled**: subscription continuava ativa no Asaas gerando payments overdue. Se cliente pagasse a antiga via link do email Asaas e depois clicasse "Reativar" no painel, cobrança duplicada. | Cancela no gateway antes de marcar local cancelled. `mpPreapprovalId` zerado pra evitar sync tentar buscar ID inválido. |
+| 🟡 Médio | **Race condition `createCheckout` vs cron `billing-sync`**: cron lia sub com `mpPreapprovalId='OLD'`, user clicava Renovar nesse meio, cron sobrescrevia o `NEW` recém-criado com o resultado do fetch do OLD. | `applyRemoteState` re-fetcha estado atual antes de update; se `mpPreapprovalId` divergiu (alguém criou checkout novo), pula com log `subscription.sync_skipped_stale_preapproval`. +1 read no DB por sync; ganho: consistência. |
+
 ### 11.2 Achados documentados para próxima rodada (não bloqueantes)
+
+#### 🟡 SEC-00: `cancelSubscription` em falha de rede do gateway (decisão consciente — não corrigir agora)
+
+**Onde**: [billing.service.ts:135-166](../../src/modules/billing/billing.service.ts#L135-L166).
+
+**Descrição**: Se `provider.cancelPreapproval` lança 5xx (Asaas timeout/instável), o `await` propaga e o `repo.update` local não roda. Cenários:
+- Asaas falha de verdade → nada mudou, user pode retentar. OK.
+- Asaas cancelou mas resposta perdida (network glitch) → Asaas cancelado + local não. Próximo cron sync detecta `INACTIVE` remoto e marca local cancelled em até 12h. **Janela de inconsistência efêmera**, sem prejuízo financeiro (Asaas não cobra mais).
+
+**Decisão**: manter como está. Auto-cura via cron sync já cobre o pior caso. Alternativa (enqueue de retry via BullMQ) adicionaria complexidade pra ganho marginal. Reavaliar se incidência crescer em produção.
 
 #### 🟡 SEC-01: Race condition em `findOrCreateCustomer` (Asaas)
 

@@ -47,10 +47,16 @@ describe('BillingService — crons', () => {
 
   describe('runBillingSync', () => {
     it('processa cada subscription elegível e aplica remoteState', async () => {
-      repo.findDueForSync.mockResolvedValue([
+      const subs = [
         { tenantId: 't1', status: 'trialing', mpPreapprovalId: 'PRE-1' },
         { tenantId: 't2', status: 'active', mpPreapprovalId: 'PRE-2' },
-      ]);
+      ];
+      repo.findDueForSync.mockResolvedValue(subs);
+      // applyRemoteState faz re-fetch (concurrency guard); por padrão devolve o mesmo
+      // estado lido pelo cron, então o guard passa.
+      repo.findByTenantId.mockImplementation((id: string) =>
+        Promise.resolve(subs.find((s) => s.tenantId === id) ?? null),
+      );
       provider.fetchPreapproval
         .mockResolvedValueOnce({
           preapprovalId: 'PRE-1',
@@ -78,10 +84,14 @@ describe('BillingService — crons', () => {
     });
 
     it('falha individual recua nextSyncAt em 15 min, segue para o próximo', async () => {
-      repo.findDueForSync.mockResolvedValue([
+      const subs = [
         { tenantId: 't1', status: 'active', mpPreapprovalId: 'PRE-1' },
         { tenantId: 't2', status: 'active', mpPreapprovalId: 'PRE-2' },
-      ]);
+      ];
+      repo.findDueForSync.mockResolvedValue(subs);
+      repo.findByTenantId.mockImplementation((id: string) =>
+        Promise.resolve(subs.find((s) => s.tenantId === id) ?? null),
+      );
       provider.fetchPreapproval.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce({
         preapprovalId: 'PRE-2',
         status: 'authorized',

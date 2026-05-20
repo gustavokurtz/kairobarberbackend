@@ -92,6 +92,24 @@ export class BillingService {
     // motivo" é o controle de mpPreapprovalId: sem ele, syncSubscription vira no-op
     // (linha ~268) e cron findDueForSync filtra cancelled. Só chega aqui se houve
     // checkout explícito que setou novo mpPreapprovalId.
+
+    // Concurrency guard: re-checa o estado atual da subscription antes de aplicar o
+    // remote state. Cenário evitado: cron sync começa lendo subscription com
+    // mpPreapprovalId='OLD', user clica Renovar nesse meio (createCheckout cancela
+    // 'OLD' no gateway, cria 'NEW', salva no DB). Sem o guard, o cron sobrescreve com
+    // o resultado de fetchPreapproval('OLD') — que pode ser 'cancelled' — e o 'NEW'
+    // recém-criado vira órfão. +1 read no DB por sync; ganho: consistência sob race.
+    const current = await this.repo.findByTenantId(local.tenantId);
+    if (!current || current.mpPreapprovalId !== local.mpPreapprovalId) {
+      this.logger.log({
+        event: 'subscription.sync_skipped_stale_preapproval',
+        tenantId: local.tenantId,
+        expectedPreapprovalId: local.mpPreapprovalId,
+        currentPreapprovalId: current?.mpPreapprovalId ?? null,
+      });
+      return;
+    }
+
     const mappedStatus = mapRemoteStatus(remote.status, local.status);
     const nextSyncAt = computeNextSyncAt(mappedStatus, this.now());
 
