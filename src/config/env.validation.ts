@@ -19,8 +19,9 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_TTL: Joi.string().default('7d'),
 
   EMAIL_PROVIDER: Joi.string().valid('console', 'resend').default('console'),
+  // Aceita "email@dominio" OU "Display Name <email@dominio>" (Resend suporta ambos).
   EMAIL_FROM: Joi.string()
-    .email({ tlds: { allow: false } })
+    .pattern(/^(?:[^<>]+\s)?<?[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+>?$/)
     .required(),
   RESEND_API_KEY: Joi.string().when('EMAIL_PROVIDER', {
     is: 'resend',
