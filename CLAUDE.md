@@ -21,7 +21,7 @@ Storefront em `/public/{slug}/ai/visagism/consultations` — cliente sobe foto m
 
 ### Modelo de negócio
 
-Plano único Mercado Pago, trial 14 dias. **Sem webhook MP** (decisão arquitetural): polling on-demand via `/admin/billing/sync` + cron de sync + cron diário pra trial. Gating: tenant `cancelled` ou `suspended` → storefront `/public/*` retorna 404 (não vaza), `/admin/*` (exceto `/admin/billing`) retorna 402.
+Plano único (Asaas primário, Mercado Pago legado/fallback). **Trial 3 dias** + **grace 1 dia em past_due**. **Sem webhook do gateway** (decisão arquitetural): polling on-demand via `/admin/billing/sync` + cron de sync 1x/hora + cron diário pra trial-check. Gating: tenant `cancelled` OU `past_due` OU `suspended` → storefront `/public/*` retorna 404 (não vaza). Em `past_due`, `/admin/*` libera leituras (GET) mas bloqueia escritas (POST/PUT/PATCH/DELETE) com 402; whitelist `/admin/billing/*` sempre libera. Em `cancelled`, `/admin/*` bloqueia tudo (exceto `/admin/billing`). Spec: [`docs/superpowers/specs/2026-05-20-trial-grace-tightening-design.md`](docs/superpowers/specs/2026-05-20-trial-grace-tightening-design.md).
 
 ### Front pareado
 

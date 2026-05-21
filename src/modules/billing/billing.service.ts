@@ -16,6 +16,7 @@ import {
   type RemoteSubscription,
 } from './providers/billing.provider';
 import { SubscriptionRepository } from './repositories/subscription.repository';
+import type { BillingStatusViewDto } from './dto/billing-status-view.dto';
 
 export interface SubscriptionView {
   status: SubscriptionStatus;
@@ -80,6 +81,43 @@ export class BillingService {
       currentPeriodEnd: sub.currentPeriodEnd,
       hasCheckout: Boolean(sub.mpPreapprovalId),
       lastSyncedAt: sub.lastSyncedAt,
+    };
+  }
+
+  async getBillingStatus(tenantId: string): Promise<BillingStatusViewDto> {
+    const sub = await this.repo.findByTenantId(tenantId);
+    if (!sub) {
+      throw new DomainException({
+        code: ErrorCodes.SUBSCRIPTION_NOT_FOUND,
+        message: 'Assinatura não encontrada para o tenant.',
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
+
+    const now = this.now();
+    let origin: BillingStatusViewDto['origin'] = null;
+    let deadlineAt: Date | null = null;
+
+    if (sub.status === SubscriptionStatus.trialing) {
+      origin = 'trial';
+      deadlineAt = sub.trialEndsAt;
+    } else if (sub.status === SubscriptionStatus.past_due) {
+      // currentPeriodEnd só fica preenchido após o primeiro pagamento real.
+      // null em past_due = trial expirou sem pagamento (trial-origin).
+      // não-null = já houve cobrança anterior bem-sucedida (payment-origin).
+      origin = sub.currentPeriodEnd ? 'payment' : 'trial';
+      const graceDays = this.config.get<number>('BILLING_PAST_DUE_GRACE_DAYS') ?? 1;
+      deadlineAt = new Date(sub.updatedAt.getTime() + graceDays * 24 * 60 * 60 * 1000);
+    }
+
+    const msUntilDeadline = deadlineAt ? Math.max(0, deadlineAt.getTime() - now.getTime()) : null;
+
+    return {
+      status: sub.status,
+      origin,
+      deadlineAt,
+      msUntilDeadline,
+      hasCheckout: Boolean(sub.mpPreapprovalId),
     };
   }
 

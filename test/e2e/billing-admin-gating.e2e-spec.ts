@@ -74,42 +74,21 @@ describe('Billing — gating admin + storefront (e2e)', () => {
     // Storefront 404 enquanto cancelled (antes do re-checkout que reseta pra trialing)
     await request(server).get('/public/gate-bill/services').expect(404);
 
-    // Checkout em cancelled cria preapproval novo e volta pra trialing (per plan Decision 4)
+    // Checkout em cancelled cria preapproval novo (whitelist /admin/billing libera).
+    // Status NÃO é resetado pra trialing aqui (mudança 2026-05-19 evita trial-fake).
+    // Storefront só volta a responder após sync detectar 'authorized' do gateway,
+    // o que é coberto pelos e2e de checkout/cron-sync.
     await request(server)
       .post('/admin/billing/checkout')
       .set('Authorization', `Bearer ${token}`)
       .send({})
       .expect(200);
 
-    // Storefront volta a responder 200 depois do re-checkout
-    await request(server).get('/public/gate-bill/services').expect(200);
+    // Enquanto não houver sync pra active, storefront segue 404
+    await request(server).get('/public/gate-bill/services').expect(404);
   });
 
-  it('past_due NÃO bloqueia admin nem storefront (gating só dispara em cancelled)', async () => {
-    const server = app.getHttpServer() as unknown as import('http').Server;
-    const prisma: PrismaService = app.get(PrismaService);
-
-    const reg = await request(server)
-      .post('/auth/register/owner')
-      .send({
-        email: 'pd@bill.test',
-        password: 'StrongPass!1',
-        name: 'PD Owner',
-        tenantName: 'PD Barber',
-        slug: 'pd-bill',
-      })
-      .expect(201);
-    const token = (reg.body as { accessToken: string }).accessToken;
-
-    await prisma.subscription.updateMany({
-      where: { tenant: { slug: 'pd-bill' } },
-      data: { status: 'past_due' },
-    });
-
-    await request(server)
-      .get('/admin/services')
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
-    await request(server).get('/public/pd-bill/services').expect(200);
-  });
+  // Comportamento de past_due agora é coberto em test/e2e/billing-past-due-gating.e2e-spec.ts
+  // (spec 2026-05-20-trial-grace-tightening-design.md). past_due passou a bloquear escritas
+  // e a derrubar a storefront, então o teste antigo "past_due NÃO bloqueia" foi removido.
 });

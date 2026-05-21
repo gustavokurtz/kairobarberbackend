@@ -7,6 +7,8 @@
 
 ---
 
+> **⚠️ Atualizado em 2026-05-20:** as decisões originais sobre trial de 14 dias e grace de 7 dias foram revisadas. Vigentes: **trial 3 dias + grace 1 dia** em past_due (bloqueante de escritas + storefront 404, **independente da origem** — trial expirado ou ciclo mensal vencido). Ver [spec dedicado](2026-05-20-trial-grace-tightening-design.md) — esse spec é load-bearing e tem prioridade sobre as menções a billing nesta página.
+
 ## 1. Contexto e objetivo
 
 KairoBarber é um SaaS multi-tenant para barbearias. Existem três tipos de usuário:

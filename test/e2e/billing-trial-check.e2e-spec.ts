@@ -36,7 +36,7 @@ describe('Billing — trial-check (e2e)', () => {
 
   afterEach(() => resetBillingClock());
 
-  it('trial expirado → past_due e past_due > 7d → cancelled', async () => {
+  it('trial expirado → past_due e past_due > 1d → cancelled', async () => {
     const server = app.getHttpServer() as unknown as import('http').Server;
     const prisma: PrismaService = app.get(PrismaService);
 
@@ -65,7 +65,7 @@ describe('Billing — trial-check (e2e)', () => {
     const clockMs = Number(process.env.BILLING_NOW_OVERRIDE_MS);
     await prisma.subscription.update({
       where: { id: sub.id },
-      data: { updatedAt: new Date(clockMs - 8 * 24 * 60 * 60 * 1000) },
+      data: { updatedAt: new Date(clockMs - 2 * 24 * 60 * 60 * 1000) },
     });
 
     await runBillingJobsNow(app);

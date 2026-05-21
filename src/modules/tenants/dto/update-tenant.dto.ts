@@ -8,7 +8,9 @@ export class UpdateTenantDto {
   // Apenas dígitos: 11 (CPF) ou 14 (CNPJ). Front é responsável por limpar pontuação.
   @IsOptional()
   @IsString()
-  @Matches(/^(\d{11}|\d{14})$/, { message: 'documentNumber deve ter 11 (CPF) ou 14 (CNPJ) dígitos' })
+  @Matches(/^(\d{11}|\d{14})$/, {
+    message: 'documentNumber deve ter 11 (CPF) ou 14 (CNPJ) dígitos',
+  })
   documentNumber?: string | null;
   @IsOptional() @IsUrl({ require_protocol: true }) avatarUrl?: string | null;
   @IsOptional() @IsString() @MaxLength(60) timezone?: string;

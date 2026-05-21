@@ -7,6 +7,9 @@ import { SubscriptionRepository } from 'src/modules/billing/repositories/subscri
 import { TokensService } from 'src/modules/auth/tokens.service';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
 
+const BILLING_WHITELIST_PREFIX = '/admin/billing/';
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 @Injectable()
 export class SubscriptionActiveGuard implements CanActivate {
   constructor(
@@ -18,9 +21,17 @@ export class SubscriptionActiveGuard implements CanActivate {
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest<{
+      method?: string;
+      url?: string;
       user?: { tenantId?: string };
       headers: Record<string, string | undefined>;
     }>();
+
+    // Whitelist hardcoded: /admin/billing/* é o único caminho de saída do
+    // past_due/cancelled (checkout, sync, cancel). Decorator esquecível seria pior.
+    if (req.url?.startsWith(BILLING_WHITELIST_PREFIX)) {
+      return true;
+    }
 
     // APP_GUARDs from different modules don't have a deterministic cross-module
     // execution order, so JwtAuthGuard may not have populated req.user yet.
@@ -69,6 +80,14 @@ export class SubscriptionActiveGuard implements CanActivate {
       throw new DomainException({
         code: ErrorCodes.SUBSCRIPTION_INACTIVE,
         message: 'Assinatura inativa. Renove para continuar usando o admin.',
+        status: HttpStatus.PAYMENT_REQUIRED,
+      });
+    }
+    // past_due bloqueia apenas mutações; GET continua liberado. Spec INV-02/INV-09.
+    if (sub.status === 'past_due' && WRITE_METHODS.has(req.method?.toUpperCase() ?? '')) {
+      throw new DomainException({
+        code: ErrorCodes.SUBSCRIPTION_PAST_DUE,
+        message: 'Pagamento pendente. Acesse /admin/billing pra regularizar e voltar a operar.',
         status: HttpStatus.PAYMENT_REQUIRED,
       });
     }

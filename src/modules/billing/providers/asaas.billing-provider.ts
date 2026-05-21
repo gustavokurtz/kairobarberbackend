@@ -196,11 +196,7 @@ export class AsaasBillingProvider implements BillingProvider {
         email: input.payerEmail,
       };
       if (input.payerCpfCnpj) updateBody.cpfCnpj = input.payerCpfCnpj;
-      await this.request(
-        'PUT',
-        `/v3/customers/${encodeURIComponent(existing.id)}`,
-        updateBody,
-      );
+      await this.request('PUT', `/v3/customers/${encodeURIComponent(existing.id)}`, updateBody);
       return existing.id;
     }
 

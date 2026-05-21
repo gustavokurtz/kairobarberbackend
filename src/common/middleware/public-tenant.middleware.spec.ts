@@ -92,4 +92,38 @@ describe('PublicTenantMiddleware', () => {
     });
     expect(err).toMatchObject({ opts: { code: 'TENANT_NOT_FOUND', status: 404 } });
   });
+
+  it('404 quando tenant tem subscription past_due (spec INV-07)', async () => {
+    const mw = new PublicTenantMiddleware(
+      buildPrisma({
+        id: 't1',
+        slug: 'mock',
+        deletedAt: null,
+        subscription: { status: 'past_due' },
+      }),
+    );
+    const err = await new Promise<unknown>((resolve) => {
+      tenantAls.run({}, () => {
+        void mw.use(makeReq('mock'), makeRes(), (e?: unknown) => resolve(e));
+      });
+    });
+    expect(err).toMatchObject({ opts: { code: 'TENANT_NOT_FOUND', status: 404 } });
+  });
+
+  it('libera quando subscription.status = trialing', async () => {
+    const mw = new PublicTenantMiddleware(
+      buildPrisma({
+        id: 't1',
+        slug: 'trial-barber',
+        deletedAt: null,
+        subscription: { status: 'trialing' },
+      }),
+    );
+    const err = await new Promise<unknown>((resolve) => {
+      tenantAls.run({}, () => {
+        void mw.use(makeReq('trial-barber'), makeRes(), (e?: unknown) => resolve(e));
+      });
+    });
+    expect(err).toBeUndefined();
+  });
 });

@@ -34,6 +34,12 @@ export class BillingController {
     return this.billing.getSubscription(tenantId);
   }
 
+  @Get('status')
+  @AllowInactiveSubscription()
+  async getStatus(@CurrentTenant() tenantId: string) {
+    return this.billing.getBillingStatus(tenantId);
+  }
+
   @Post('checkout')
   @AllowInactiveSubscription()
   @Roles(UserRole.tenant_owner)

@@ -160,12 +160,7 @@ export class MercadopagoBillingProvider implements BillingProvider {
   }
 }
 
-const PII_FIELDS: ReadonlySet<string> = new Set([
-  'payer_email',
-  'card_token_id',
-  'payer',
-  'card',
-]);
+const PII_FIELDS: ReadonlySet<string> = new Set(['payer_email', 'card_token_id', 'payer', 'card']);
 
 function sanitizeBody(body: unknown): unknown {
   if (body === undefined || body === null) return body;

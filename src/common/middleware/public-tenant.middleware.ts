@@ -32,7 +32,10 @@ export class PublicTenantMiddleware implements NestMiddleware {
         }),
       );
     }
-    if (tenant.subscription && tenant.subscription.status === 'cancelled') {
+    if (
+      tenant.subscription &&
+      (tenant.subscription.status === 'cancelled' || tenant.subscription.status === 'past_due')
+    ) {
       return next(
         new DomainException({
           code: ErrorCodes.TENANT_NOT_FOUND,

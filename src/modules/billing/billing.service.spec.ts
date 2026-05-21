@@ -33,7 +33,7 @@ function mkProvider(): Mocked<BillingProvider> {
 function mkConfig(overrides: Record<string, unknown> = {}): ConfigService {
   const map: Record<string, unknown> = {
     BILLING_TRIAL_DAYS: 14,
-    BILLING_PAST_DUE_GRACE_DAYS: 7,
+    BILLING_PAST_DUE_GRACE_DAYS: 1,
     MP_PLAN_AMOUNT_CENTS: 4990,
     MP_BILLING_FREQUENCY: 'months',
     ...overrides,
@@ -242,10 +242,7 @@ describe('BillingService — core', () => {
         status: 'authorized',
         nextPaymentDate: new Date('2026-06-12T12:00:00Z'),
       });
-      expect(repo.update).toHaveBeenCalledWith(
-        't1',
-        expect.objectContaining({ status: 'active' }),
-      );
+      expect(repo.update).toHaveBeenCalledWith('t1', expect.objectContaining({ status: 'active' }));
     });
 
     it('skip silencioso se mpPreapprovalId mudou entre read e apply (race com createCheckout)', async () => {
@@ -254,8 +251,12 @@ describe('BillingService — core', () => {
       // remoto agora sobrescreveria o NEW. Guard detecta divergência e pula.
       repo.findByTenantId.mockResolvedValue({ ...baseSub, mpPreapprovalId: 'PRE-NEW' });
       await svc.applyRemoteState(
-        { ...baseSub, mpPreapprovalId: 'PRE-OLD' } as never,
-        { preapprovalId: 'PRE-OLD', status: 'cancelled', nextPaymentDate: null },
+        { ...baseSub, mpPreapprovalId: 'PRE-OLD' },
+        {
+          preapprovalId: 'PRE-OLD',
+          status: 'cancelled',
+          nextPaymentDate: null,
+        },
       );
       expect(repo.update).not.toHaveBeenCalled();
     });
@@ -311,6 +312,133 @@ describe('BillingService — core', () => {
       await svc.cancelSubscription('t1');
       expect(provider.cancelPreapproval).not.toHaveBeenCalled();
       expect(repo.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('getBillingStatus', () => {
+    // svc usa mkConfig() default (grace=1). FIXED_NOW = 2026-05-12T12Z (do beforeEach do describe pai).
+    const FIXED_NOW = new Date('2026-05-12T12:00:00Z');
+
+    it('trialing → origin=trial, deadlineAt=trialEndsAt', async () => {
+      const trialEndsAt = new Date('2026-05-15T12:00:00Z'); // +3 dias
+      repo.findByTenantId.mockResolvedValue({
+        id: 's1',
+        tenantId: 't1',
+        status: 'trialing',
+        trialEndsAt,
+        currentPeriodEnd: null,
+        mpPreapprovalId: null,
+        lastSyncedAt: null,
+        nextSyncAt: null,
+        createdAt: FIXED_NOW,
+        updatedAt: FIXED_NOW,
+      });
+
+      const out = await svc.getBillingStatus('t1');
+      expect(out).toEqual({
+        status: 'trialing',
+        origin: 'trial',
+        deadlineAt: trialEndsAt,
+        msUntilDeadline: 3 * 24 * 60 * 60 * 1000,
+        hasCheckout: false,
+      });
+    });
+
+    it('past_due + currentPeriodEnd null → origin=trial', async () => {
+      const updatedAt = new Date('2026-05-11T12:00:00Z'); // ontem
+      repo.findByTenantId.mockResolvedValue({
+        id: 's1',
+        tenantId: 't1',
+        status: 'past_due',
+        trialEndsAt: new Date('2026-05-11T12:00:00Z'),
+        currentPeriodEnd: null,
+        mpPreapprovalId: null,
+        lastSyncedAt: null,
+        nextSyncAt: null,
+        createdAt: FIXED_NOW,
+        updatedAt,
+      });
+
+      const out = await svc.getBillingStatus('t1');
+      expect(out.origin).toBe('trial');
+      // deadline = updatedAt + 1d (grace default) = 2026-05-12T12Z = FIXED_NOW → ms=0
+      expect(out.deadlineAt).toEqual(new Date('2026-05-12T12:00:00Z'));
+      expect(out.msUntilDeadline).toBe(0);
+    });
+
+    it('past_due + currentPeriodEnd não-null → origin=payment', async () => {
+      const periodEnd = new Date('2026-05-02T12:00:00Z');
+      const updatedAt = new Date('2026-05-12T06:00:00Z'); // 6h antes do FIXED_NOW
+      repo.findByTenantId.mockResolvedValue({
+        id: 's1',
+        tenantId: 't1',
+        status: 'past_due',
+        trialEndsAt: null,
+        currentPeriodEnd: periodEnd,
+        mpPreapprovalId: 'mp_abc',
+        lastSyncedAt: null,
+        nextSyncAt: null,
+        createdAt: FIXED_NOW,
+        updatedAt,
+      });
+
+      const out = await svc.getBillingStatus('t1');
+      expect(out.origin).toBe('payment');
+      expect(out.deadlineAt).toEqual(new Date(updatedAt.getTime() + 24 * 60 * 60 * 1000));
+      expect(out.hasCheckout).toBe(true);
+      // 18h até deadline (24h - 6h)
+      expect(out.msUntilDeadline).toBe(18 * 60 * 60 * 1000);
+    });
+
+    it('active → origin=null, deadlineAt=null, msUntilDeadline=null', async () => {
+      repo.findByTenantId.mockResolvedValue({
+        id: 's1',
+        tenantId: 't1',
+        status: 'active',
+        trialEndsAt: null,
+        currentPeriodEnd: new Date('2026-06-10T12:00:00Z'),
+        mpPreapprovalId: 'mp_abc',
+        lastSyncedAt: FIXED_NOW,
+        nextSyncAt: null,
+        createdAt: FIXED_NOW,
+        updatedAt: FIXED_NOW,
+      });
+
+      const out = await svc.getBillingStatus('t1');
+      expect(out).toMatchObject({
+        status: 'active',
+        origin: null,
+        deadlineAt: null,
+        msUntilDeadline: null,
+        hasCheckout: true,
+      });
+    });
+
+    it('cancelled → origin=null, deadlineAt=null', async () => {
+      repo.findByTenantId.mockResolvedValue({
+        id: 's1',
+        tenantId: 't1',
+        status: 'cancelled',
+        trialEndsAt: null,
+        currentPeriodEnd: null,
+        mpPreapprovalId: null,
+        lastSyncedAt: FIXED_NOW,
+        nextSyncAt: null,
+        createdAt: FIXED_NOW,
+        updatedAt: FIXED_NOW,
+      });
+
+      const out = await svc.getBillingStatus('t1');
+      expect(out.origin).toBeNull();
+      expect(out.deadlineAt).toBeNull();
+      expect(out.msUntilDeadline).toBeNull();
+    });
+
+    it('lança SUBSCRIPTION_NOT_FOUND se não existir', async () => {
+      repo.findByTenantId.mockResolvedValue(null);
+      await expect(svc.getBillingStatus('t1')).rejects.toMatchObject({
+        opts: { code: 'SUBSCRIPTION_NOT_FOUND' },
+      });
     });
   });
 });

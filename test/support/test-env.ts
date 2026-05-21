@@ -12,7 +12,7 @@ export function setTestEnv() {
   process.env.LOG_LEVEL = 'fatal';
   process.env.BILLING_PROVIDER = process.env.BILLING_PROVIDER ?? 'console';
   process.env.BILLING_TRIAL_DAYS = process.env.BILLING_TRIAL_DAYS ?? '14';
-  process.env.BILLING_PAST_DUE_GRACE_DAYS = process.env.BILLING_PAST_DUE_GRACE_DAYS ?? '7';
+  process.env.BILLING_PAST_DUE_GRACE_DAYS = process.env.BILLING_PAST_DUE_GRACE_DAYS ?? '1';
   // Default E2E para providers "console" — evita bater em R2/Groq/MP reais quando o
   // .env do dev aponta pra produção. Aplicado aqui (no setupFiles) pra que ConfigModule
   // do Nest, ao chamar dotenv, NÃO sobrescreva (dotenv preserva process.env já populado).
