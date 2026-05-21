@@ -75,17 +75,17 @@ Backend gera presigned URL — E2E só testa isso. **Só com navegador real voc�
 
 ---
 
-## 5. Crons em produção (Railway) {#crons}
+## 5. Crons em produção {#crons}
 
 Crons funcionam no E2E (rodando manualmente), mas em prod precisa confirmar que o **scheduler dispara**.
 
 | Cron | Schedule (UTC) | Como confirmar em prod |
 |------|----------------|------------------------|
-| `billing-sync` | `0 6,18 * * *` | Logs do Railway mostram execução. Audit log tem entrada nova após o horário. |
-| `trial-check` | `15 6 * * *` | Logs do Railway. Tenant com trial expirado realmente transita. |
+| `billing-sync` | `0 * * * *` (1×/hora) | Logs do servidor mostram execução. Audit log tem entrada nova após o horário. |
+| `trial-check` | `15 6 * * *` | Logs. Tenant com trial expirado realmente transita. |
 | `ai-photo-cleanup` | (verificar valor) | Logs. Row antiga (>7 dias) marcada como cleaned. Foto sumiu do R2. |
 
-**Pegada**: timezone do Railway. Confirmar que o cron expression UTC corresponde ao horário pretendido em SP.
+**Pegada**: timezone do servidor (UTC esperado). Confirmar que o cron expression UTC corresponde ao horário pretendido em SP.
 
 ---
 
@@ -140,7 +140,7 @@ Data: ____  Executor: ____
 [ ] Emails reais: __/6 cenários OK
 [ ] Mercado Pago sandbox: __/6 cenários OK
 [ ] R2 upload navegador: __/5 cenários OK
-[ ] Crons prod (Railway): __/3 confirmados
+[ ] Crons prod: __/3 confirmados
 [ ] UX & i18n: __/6 cenários OK
 [ ] Performance: dentro do esperado
 [ ] Segurança operacional: __/4 verificações OK

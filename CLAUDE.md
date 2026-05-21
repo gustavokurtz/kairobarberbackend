@@ -95,7 +95,7 @@ Se uma decisão arquitetural do spec parece errada hoje:
 | Validação | zod + class-validator |
 | Logger | nestjs-pino (structured) |
 | Monitoring | Sentry (opcional via `SENTRY_DSN`) |
-| Deploy | Railway, branch `main` → CI verde → auto |
+| Deploy | VPS com nginx (Cloudflare na frente). Branch `main` → CI verde → deploy. |
 
 Multi-tenancy: shared DB + coluna `tenantId`. Tenant isolation via TenantGuard + Prisma middleware (impossível esquecer).
 

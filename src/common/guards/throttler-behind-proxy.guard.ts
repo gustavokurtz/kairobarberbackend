@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 
-// Em produção a API roda atrás do proxy do Railway (e qualquer outro reverse-proxy
-// no caminho). Sem custom tracker + trust proxy, req.ip vira o IP do gateway —
-// todos os usuários compartilham o mesmo "IP" do ponto de vista do throttler,
-// e a app inteira fica limitada a `limit` req/min somados.
+// Em produção a API roda atrás de nginx (e opcionalmente Cloudflare/CDN). Sem
+// custom tracker + trust proxy, req.ip vira o IP do último hop — todos os
+// usuários compartilham o mesmo "IP" do ponto de vista do throttler, e a app
+// inteira fica limitada a `limit` req/min somados.
 //
 // req.ips é populado pelo Express quando `trust proxy` está habilitado (main.ts).
 // Quando vazio (chamada direta sem proxy), cai pro req.ip do socket.

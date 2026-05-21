@@ -15,11 +15,12 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
 
-  // Railway (e qualquer outro proxy à frente da app) seta X-Forwarded-For com o IP
-  // real do cliente. Sem `trust proxy`, req.ip vira o IP do gateway e o throttler
-  // trata todos os usuários como o mesmo IP. TRUST_PROXY_HOPS controla quantos
-  // proxies confiar (Railway = 1). Em testes/local sem proxy, 0 ou false desliga.
-  const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 1);
+  // Em prod (nginx + opcionalmente Cloudflare na frente), os proxies setam
+  // X-Forwarded-For com o IP real do cliente. Sem `trust proxy`, req.ip vira o IP
+  // do último hop e o throttler trata todos os usuários como o mesmo IP.
+  // TRUST_PROXY_HOPS controla quantos proxies confiar — nginx direto = 1; nginx
+  // atrás de Cloudflare = 2. Em testes/local sem proxy, 0 desliga.
+  const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 2);
   app.set('trust proxy', trustProxyHops);
 
   app.use(helmet());

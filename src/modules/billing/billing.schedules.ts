@@ -37,7 +37,8 @@ export class BillingSchedules implements OnApplicationBootstrap, OnApplicationSh
       // INV-15 + D-05: crash visível >> trial infinito silencioso. Sem webhook do
       // gateway, este cron é o único sinal de OVERDUE — se não registrar, ninguém
       // detecta past_due. Sentry captura exceptions não tratadas em lifecycle hooks
-      // via integração NestJS (sem captureException manual). Railway re-tenta deploy.
+      // via integração NestJS (sem captureException manual). Orquestrador externo
+      // (systemd/pm2/Docker) deve detectar o exit não-zero e re-tentar boot.
       this.logger.error({
         event: 'billing.schedules_registration_failed',
         error: (err as Error).message,
