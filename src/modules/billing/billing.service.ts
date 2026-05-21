@@ -106,7 +106,7 @@ export class BillingService {
       // null em past_due = trial expirou sem pagamento (trial-origin).
       // não-null = já houve cobrança anterior bem-sucedida (payment-origin).
       origin = sub.currentPeriodEnd ? 'payment' : 'trial';
-      const graceDays = this.config.get<number>('BILLING_PAST_DUE_GRACE_DAYS') ?? 1;
+      const graceDays = this.config.getOrThrow<number>('BILLING_PAST_DUE_GRACE_DAYS');
       deadlineAt = new Date(sub.updatedAt.getTime() + graceDays * 24 * 60 * 60 * 1000);
     }
 
