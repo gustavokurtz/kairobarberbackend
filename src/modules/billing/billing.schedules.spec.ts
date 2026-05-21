@@ -58,4 +58,41 @@ describe('BillingSchedules', () => {
       expect(queue.upsertJobScheduler).not.toHaveBeenCalled();
     });
   });
+
+  describe('onApplicationBootstrap — falha de Redis/BullMQ', () => {
+    it('re-throws com mensagem específica se upsertJobScheduler rejeitar', async () => {
+      const queue = mkQueue();
+      (queue.upsertJobScheduler as jest.Mock).mockRejectedValueOnce(
+        new Error('ECONNREFUSED 127.0.0.1:6379'),
+      );
+      const schedules = new BillingSchedules(queue, mkConfig());
+
+      await expect(schedules.onApplicationBootstrap()).rejects.toThrow(
+        /Failed to register billing schedulers.*ECONNREFUSED/,
+      );
+    });
+
+    it('loga billing.schedules_registration_failed antes do re-throw (com error e stack)', async () => {
+      const queue = mkQueue();
+      const upstreamError = new Error('Redis offline');
+      (queue.upsertJobScheduler as jest.Mock).mockRejectedValueOnce(upstreamError);
+      const schedules = new BillingSchedules(queue, mkConfig());
+
+      const errorSpy = jest
+        .spyOn((schedules as unknown as { logger: { error: jest.Mock } }).logger, 'error')
+        .mockImplementation(() => undefined as never);
+
+      await expect(schedules.onApplicationBootstrap()).rejects.toThrow();
+
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      const payload = errorSpy.mock.calls[0][0] as {
+        event: string;
+        error: string;
+        stack: string;
+      };
+      expect(payload.event).toBe('billing.schedules_registration_failed');
+      expect(payload.error).toBe('Redis offline');
+      expect(payload.stack).toMatch(/.+/);
+    });
+  });
 });

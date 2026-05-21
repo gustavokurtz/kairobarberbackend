@@ -22,16 +22,29 @@ export class BillingSchedules implements OnApplicationBootstrap, OnApplicationSh
     const syncCron = this.config.getOrThrow<string>('BILLING_SYNC_CRON');
     const trialCron = this.config.getOrThrow<string>('BILLING_TRIAL_CHECK_CRON');
 
-    await this.queue.upsertJobScheduler(
-      BILLING_SYNC_JOB_KEY,
-      { pattern: syncCron, tz: 'UTC' },
-      { name: JOB_BILLING_SYNC, data: {} },
-    );
-    await this.queue.upsertJobScheduler(
-      TRIAL_CHECK_JOB_KEY,
-      { pattern: trialCron, tz: 'UTC' },
-      { name: JOB_TRIAL_CHECK, data: {} },
-    );
+    try {
+      await this.queue.upsertJobScheduler(
+        BILLING_SYNC_JOB_KEY,
+        { pattern: syncCron, tz: 'UTC' },
+        { name: JOB_BILLING_SYNC, data: {} },
+      );
+      await this.queue.upsertJobScheduler(
+        TRIAL_CHECK_JOB_KEY,
+        { pattern: trialCron, tz: 'UTC' },
+        { name: JOB_TRIAL_CHECK, data: {} },
+      );
+    } catch (err) {
+      // INV-15 + D-05: crash visível >> trial infinito silencioso. Sem webhook do
+      // gateway, este cron é o único sinal de OVERDUE — se não registrar, ninguém
+      // detecta past_due. Sentry captura exceptions não tratadas em lifecycle hooks
+      // via integração NestJS (sem captureException manual). Railway re-tenta deploy.
+      this.logger.error({
+        event: 'billing.schedules_registration_failed',
+        error: (err as Error).message,
+        stack: (err as Error).stack,
+      });
+      throw new Error(`Failed to register billing schedulers: ${(err as Error).message}`);
+    }
 
     this.logger.log({
       event: 'billing.schedules_registered',
