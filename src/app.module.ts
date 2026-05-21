@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerBehindProxyGuard } from './common/guards/throttler-behind-proxy.guard';
 import { ConfigModule } from './config/config.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { AuditModule } from './common/audit/audit.module';
@@ -32,7 +33,10 @@ import { SubscriptionActiveGuard } from './common/guards/subscription-active.gua
     ThrottlerModule.forRoot([
       {
         ttl: Number(process.env.THROTTLE_TTL ?? 60) * 1000,
-        limit: Number(process.env.THROTTLE_LIMIT ?? 10),
+        // Global default subido de 10 -> 60. Dashboard SaaS autenticado faz
+        // facilmente 20-30 req/min (status polling, multi-tab, refreshes). Endpoints
+        // com side-effect (signup, checkout) sobrescrevem com @Throttle local.
+        limit: Number(process.env.THROTTLE_LIMIT ?? 60),
       },
     ]),
     PrismaModule,
@@ -54,7 +58,7 @@ import { SubscriptionActiveGuard } from './common/guards/subscription-active.gua
     HealthModule,
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: ThrottlerBehindProxyGuard },
     { provide: APP_GUARD, useClass: SubscriptionActiveGuard },
   ],
 })

@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from 'nestjs-pino';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
@@ -11,8 +12,15 @@ import { tenantAls } from './infra/prisma/prisma.service';
 initSentry(process.env.SENTRY_DSN, process.env.NODE_ENV);
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
+
+  // Railway (e qualquer outro proxy à frente da app) seta X-Forwarded-For com o IP
+  // real do cliente. Sem `trust proxy`, req.ip vira o IP do gateway e o throttler
+  // trata todos os usuários como o mesmo IP. TRUST_PROXY_HOPS controla quantos
+  // proxies confiar (Railway = 1). Em testes/local sem proxy, 0 ou false desliga.
+  const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 1);
+  app.set('trust proxy', trustProxyHops);
 
   app.use(helmet());
 

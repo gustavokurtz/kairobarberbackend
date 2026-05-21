@@ -45,9 +45,10 @@ export class BillingController {
   @Roles(UserRole.tenant_owner)
   @HttpCode(HttpStatus.OK)
   // Cria assinatura no gateway externo (com side-effects financeiros).
-  // 3 tentativas/min/IP previnem múltiplas subscriptions órfãs por cliques repetidos no front
-  // ou abuso de owner autenticado.
-  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  // 6 tentativas/min/IP — tolera cliques repetidos e refreshes em UX real, mas ainda
+  // contém abuso de bot. F4 vai serializar concorrência via transaction (A4), o que
+  // permitiria relaxar mais; por ora 6 é o equilibrio que evita 429 no fluxo normal.
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
   async checkout(
     @CurrentTenant() tenantId: string,
     @CurrentUser() user: AuthenticatedUser | undefined,
