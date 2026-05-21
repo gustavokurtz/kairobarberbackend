@@ -144,4 +144,51 @@ describe('Onboarding completo (e2e)', () => {
       .expect(401);
     expect((reuse.body as ErrorResponse).code).toBe('REFRESH_REUSED');
   });
+
+});
+
+describe('Throttle (isolated app instance)', () => {
+  let app: INestApplication;
+  let container: StartedPostgreSqlContainer;
+
+  beforeAll(async () => {
+    setTestEnv();
+    container = await startTestPostgres();
+    app = await buildTestApp();
+  }, 120_000);
+
+  afterAll(async () => {
+    await app.close();
+    await container.stop();
+  });
+
+  it('throttles register/owner em 4ª request consecutiva (3/60s/IP)', async () => {
+    const server = app.getHttpServer();
+
+    // 3 signups com slugs e emails distintos devem passar (limite 3/60s)
+    for (let i = 0; i < 3; i++) {
+      await request(server)
+        .post('/auth/register/owner')
+        .send({
+          email: `throttle${i}@example.com`,
+          password: 'StrongPass!1',
+          name: `Throttle ${i}`,
+          tenantName: `Throttle Barber ${i}`,
+          slug: `throttle-${i}`,
+        })
+        .expect(201);
+    }
+
+    // 4ª request no mesmo IP em < 60s deve retornar 429 Too Many Requests
+    await request(server)
+      .post('/auth/register/owner')
+      .send({
+        email: 'throttle3@example.com',
+        password: 'StrongPass!1',
+        name: 'Throttle 3',
+        tenantName: 'Throttle Barber 3',
+        slug: 'throttle-3',
+      })
+      .expect(429);
+  });
 });

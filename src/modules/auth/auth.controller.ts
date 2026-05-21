@@ -17,6 +17,7 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @Post('register/owner')
   @HttpCode(HttpStatus.CREATED)
   async registerOwner(@Body() dto: RegisterOwnerDto) {
