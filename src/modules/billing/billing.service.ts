@@ -413,7 +413,7 @@ export class BillingService {
       });
     }
 
-    const graceDays = this.config.get<number>('BILLING_PAST_DUE_GRACE_DAYS') ?? 7;
+    const graceDays = this.config.getOrThrow<number>('BILLING_PAST_DUE_GRACE_DAYS');
     const cutoff = new Date(now.getTime() - graceDays * 24 * 60 * 60 * 1000);
     const overGrace = await this.repo.findPastDueOverGrace(cutoff);
     for (const sub of overGrace) {

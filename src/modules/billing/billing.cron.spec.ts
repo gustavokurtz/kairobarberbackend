@@ -188,5 +188,35 @@ describe('BillingService — crons', () => {
         expect.objectContaining({ status: 'cancelled', mpPreapprovalId: null }),
       );
     });
+
+    it('propaga erro se BILLING_PAST_DUE_GRACE_DAYS ausente na config (sem fallback silencioso)', async () => {
+      // Antes do fix F2, o `?? 7` mascarava env ausente e o cron esperava 7 dias
+      // silenciosamente. Após o fix, getOrThrow propaga e o cron falha ruidoso —
+      // Sentry/Pino capturam, ops investiga. INV-14 + C2 do spec billing-hardening-v2.
+      const configSemGrace = {
+        get: (k: string) =>
+          k === 'BILLING_PAST_DUE_GRACE_DAYS'
+            ? undefined
+            : ({ BILLING_TRIAL_DAYS: 14 } as Record<string, unknown>)[k],
+        getOrThrow: (k: string) => {
+          if (k === 'BILLING_PAST_DUE_GRACE_DAYS') {
+            throw new Error('Configuration key "BILLING_PAST_DUE_GRACE_DAYS" does not exist');
+          }
+          return ({ BILLING_TRIAL_DAYS: 14 } as Record<string, unknown>)[k];
+        },
+      } as unknown as ConfigService;
+
+      const audit = { record: jest.fn().mockResolvedValue(undefined) } as unknown as AuditService;
+      const svcSemGrace = new BillingService(
+        repo as never,
+        provider,
+        configSemGrace,
+        new Logger('test'),
+        audit,
+      );
+
+      repo.findExpiredTrials.mockResolvedValue([]);
+      await expect(svcSemGrace.runTrialCheck()).rejects.toThrow(/BILLING_PAST_DUE_GRACE_DAYS/);
+    });
   });
 });
