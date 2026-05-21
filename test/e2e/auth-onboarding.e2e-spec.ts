@@ -144,7 +144,124 @@ describe('Onboarding completo (e2e)', () => {
       .expect(401);
     expect((reuse.body as ErrorResponse).code).toBe('REFRESH_REUSED');
   });
+});
 
+describe('Email normalize — lookup case-variant (isolated)', () => {
+  let app: INestApplication;
+  let container: StartedPostgreSqlContainer;
+
+  beforeAll(async () => {
+    setTestEnv();
+    container = await startTestPostgres();
+    app = await buildTestApp();
+  }, 120_000);
+
+  afterAll(async () => {
+    await app.close();
+    await container.stop();
+  });
+
+  it('login funciona com email case-variant após signup (lookup normalize)', async () => {
+    const server = app.getHttpServer();
+
+    await request(server)
+      .post('/auth/register/owner')
+      .send({
+        email: 'CaseLookup@Example.com',
+        password: 'StrongPass!1',
+        name: 'Case Lookup',
+        tenantName: 'Case Lookup Barber',
+        slug: 'case-lookup',
+      })
+      .expect(201);
+
+    const login = await request(server)
+      .post('/auth/login')
+      .send({ email: 'caselookup@example.com', password: 'StrongPass!1' })
+      .expect(200);
+
+    const body = login.body as LoginResponse;
+    expect(body.accessToken).toBeTruthy();
+  });
+});
+
+describe('Email normalize — duplicate detection (isolated)', () => {
+  let app: INestApplication;
+  let container: StartedPostgreSqlContainer;
+
+  beforeAll(async () => {
+    setTestEnv();
+    container = await startTestPostgres();
+    app = await buildTestApp();
+  }, 120_000);
+
+  afterAll(async () => {
+    await app.close();
+    await container.stop();
+  });
+
+  it('rejeita signup com email case-variant do existente (409)', async () => {
+    const server = app.getHttpServer();
+
+    await request(server)
+      .post('/auth/register/owner')
+      .send({
+        email: 'dupCase@Example.com',
+        password: 'StrongPass!1',
+        name: 'Dup Case',
+        tenantName: 'Dup Case Barber',
+        slug: 'dup-case-1',
+      })
+      .expect(201);
+
+    const conflict = await request(server)
+      .post('/auth/register/owner')
+      .send({
+        email: 'DUPCASE@example.com',
+        password: 'StrongPass!1',
+        name: 'Dup Case 2',
+        tenantName: 'Dup Case Barber 2',
+        slug: 'dup-case-2',
+      })
+      .expect(409);
+
+    const body = conflict.body as ErrorResponse;
+    expect(body.code).toBe('EMAIL_ALREADY_REGISTERED');
+  });
+});
+
+describe('Email normalize — write lowercase (isolated)', () => {
+  let app: INestApplication;
+  let container: StartedPostgreSqlContainer;
+
+  beforeAll(async () => {
+    setTestEnv();
+    container = await startTestPostgres();
+    app = await buildTestApp();
+  }, 120_000);
+
+  afterAll(async () => {
+    await app.close();
+    await container.stop();
+  });
+
+  it('grava email normalizado (lowercase) no DB após signup', async () => {
+    const server = app.getHttpServer();
+
+    const reg = await request(server)
+      .post('/auth/register/owner')
+      .send({
+        email: 'NormalizeWrite@Example.com',
+        password: 'StrongPass!1',
+        name: 'Normalize Write',
+        tenantName: 'Normalize Write Barber',
+        slug: 'normalize-write',
+      })
+      .expect(201);
+
+    const body = reg.body as RegisterResponse;
+    expect(body.user.email).toBe('normalizewrite@example.com');
+  });
 });
 
 describe('Throttle (isolated app instance)', () => {

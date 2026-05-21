@@ -58,7 +58,8 @@ export class AuthService {
         status: HttpStatus.CONFLICT,
       });
     }
-    const existingEmail = await this.users.findByEmail(dto.email);
+    const email = dto.email.trim().toLowerCase();
+    const existingEmail = await this.users.findByEmail(email);
     if (existingEmail) {
       throw new DomainException({
         code: ErrorCodes.EMAIL_ALREADY_REGISTERED,
@@ -79,7 +80,7 @@ export class AuthService {
 
     const { user, tenant } = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
-        data: { email: dto.email, passwordHash, name: dto.name, role: UserRole.tenant_owner },
+        data: { email, passwordHash, name: dto.name, role: UserRole.tenant_owner },
       });
       const tenant = await tx.tenant.create({
         data: { slug: dto.slug, name: dto.tenantName, ownerUserId: user.id },
@@ -118,7 +119,7 @@ export class AuthService {
   }
 
   async login(email: string, plainPassword: string) {
-    const user = await this.users.findByEmail(email);
+    const user = await this.users.findByEmail(email.trim().toLowerCase());
     if (!user) {
       throw new DomainException({
         code: ErrorCodes.INVALID_CREDENTIALS,
@@ -203,7 +204,7 @@ export class AuthService {
   }
 
   async forgotPassword(email: string) {
-    const user = await this.users.findByEmail(email);
+    const user = await this.users.findByEmail(email.trim().toLowerCase());
     if (!user) return; // anti-enumeration
     const { plain } = await this.otts.issue(user.id, OneTimeTokenPurpose.password_reset, 3600);
     // Best-effort: nunca propagar falha de email pra response (também preserva anti-enumeration).
@@ -242,7 +243,7 @@ export class AuthService {
   async acceptBarberInvite(input: { token: string; password: string; name: string }) {
     const invitation = await this.barberInvitations.validate(input.token);
 
-    const existingUser = await this.users.findByEmail(invitation.email);
+    const existingUser = await this.users.findByEmail(invitation.email.trim().toLowerCase());
     if (existingUser) {
       throw new DomainException({
         code: ErrorCodes.EMAIL_ALREADY_REGISTERED,
@@ -256,7 +257,7 @@ export class AuthService {
     const { user } = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          email: invitation.email,
+          email: invitation.email.trim().toLowerCase(),
           name: input.name,
           passwordHash,
           role: UserRole.barber_member,
@@ -298,7 +299,7 @@ export class AuthService {
         status: HttpStatus.BAD_REQUEST,
       });
     }
-    const existingUser = await this.users.findByEmail(customer.email);
+    const existingUser = await this.users.findByEmail(customer.email.trim().toLowerCase());
     if (existingUser) {
       throw new DomainException({
         code: ErrorCodes.EMAIL_ALREADY_REGISTERED,
@@ -310,7 +311,7 @@ export class AuthService {
     const user = await this.prisma.$transaction(async (tx) => {
       const u = await tx.user.create({
         data: {
-          email: customer.email!,
+          email: customer.email!.trim().toLowerCase(),
           passwordHash,
           name: customer.name,
           role: UserRole.customer,
