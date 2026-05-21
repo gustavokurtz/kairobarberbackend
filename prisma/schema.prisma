@@ -51,7 +51,10 @@ enum AiConsultationStatus {
 
 model User {
   id              String    @id @default(cuid())
-  email           String    @unique
+  // Unique constraint é funcional (LOWER(email)) criado por migration manual:
+  // prisma/migrations/20260521172819_user_email_case_insensitive (R-F1-07/F1-08).
+  // Prisma 5.x não suporta index funcional nativo no schema — não readicionar @unique aqui.
+  email           String
   passwordHash    String
   name            String
   role            UserRole

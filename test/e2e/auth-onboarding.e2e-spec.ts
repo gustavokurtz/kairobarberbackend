@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { PrismaService } from '../../src/infra/prisma/prisma.service';
 import { setTestEnv } from '../support/test-env';
 import { startTestPostgres } from '../support/postgres-container';
 import { buildTestApp } from '../support/test-app';
@@ -307,5 +308,53 @@ describe('Throttle (isolated app instance)', () => {
         slug: 'throttle-3',
       })
       .expect(429);
+  });
+});
+
+describe('DB unique constraint LOWER(email) (isolated app instance)', () => {
+  let app: INestApplication;
+  let container: StartedPostgreSqlContainer;
+
+  beforeAll(async () => {
+    setTestEnv();
+    container = await startTestPostgres();
+    app = await buildTestApp();
+  }, 120_000);
+
+  afterAll(async () => {
+    await app.close();
+    await container.stop();
+  });
+
+  it('DB rejeita INSERT direto com email case-variant (constraint funcional)', async () => {
+    const server = app.getHttpServer();
+
+    // Registrar via API — grava email normalizado (lowercase) pela T4
+    await request(server)
+      .post('/auth/register/owner')
+      .send({
+        email: 'dbconstraint@example.com',
+        password: 'StrongPass!1',
+        name: 'DB Constraint',
+        tenantName: 'DB Constraint Barber',
+        slug: 'db-constraint',
+      })
+      .expect(201);
+
+    // Bypassar service e tentar INSERT direto via Prisma com case-variant
+    // Sem o índice funcional, Postgres aceita (case-sensitive @unique).
+    // Com o índice funcional, deve falhar.
+    const prisma = app.get(PrismaService);
+
+    await expect(
+      prisma.user.create({
+        data: {
+          email: 'DBConstraint@Example.com', // case-variant deliberado
+          passwordHash: 'fakehash',
+          name: 'Bypass',
+          role: 'tenant_owner',
+        },
+      }),
+    ).rejects.toThrow(/Unique constraint|user_email_lower_unique|already exists|unique/i);
   });
 });

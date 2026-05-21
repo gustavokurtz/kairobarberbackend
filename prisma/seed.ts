@@ -84,7 +84,7 @@ async function ensureSaasOwner(prisma: PrismaClient): Promise<{ email: string; p
   const password = process.env.SAAS_OWNER_PASSWORD ?? 'ChangeMe!1234';
   const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findFirst({ where: { email } });
   if (existing) {
     if (existing.role !== UserRole.saas_owner) {
       throw new Error(`Usuário ${email} já existe mas role é ${existing.role}, não saas_owner.`);
