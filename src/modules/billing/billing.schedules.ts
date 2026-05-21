@@ -19,8 +19,8 @@ export class BillingSchedules implements OnApplicationBootstrap, OnApplicationSh
       this.logger.log({ event: 'billing.schedules_skipped', reason: 'NODE_ENV=test' });
       return;
     }
-    const syncCron = this.config.get<string>('BILLING_SYNC_CRON') ?? '0 6,18 * * *';
-    const trialCron = this.config.get<string>('BILLING_TRIAL_CHECK_CRON') ?? '15 6 * * *';
+    const syncCron = this.config.getOrThrow<string>('BILLING_SYNC_CRON');
+    const trialCron = this.config.getOrThrow<string>('BILLING_TRIAL_CHECK_CRON');
 
     await this.queue.upsertJobScheduler(
       BILLING_SYNC_JOB_KEY,
