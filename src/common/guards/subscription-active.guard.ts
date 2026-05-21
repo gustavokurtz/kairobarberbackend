@@ -7,8 +7,20 @@ import { SubscriptionRepository } from 'src/modules/billing/repositories/subscri
 import { TokensService } from 'src/modules/auth/tokens.service';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
 
-const BILLING_WHITELIST_PREFIX = '/admin/billing/';
+const BILLING_WHITELIST_BASE = '/admin/billing';
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/**
+ * Match `/admin/billing` (raiz), `/admin/billing/<qualquer>`, `/admin/billing?...`,
+ * mas NÃO `/admin/billing-foo` ou `/admin/billings`. Boundary explícito previne
+ * que o prefixo bloqueie um endpoint raiz futuro (`@Get()` direto no controller).
+ */
+function isBillingWhitelist(url: string | undefined): boolean {
+  if (!url) return false;
+  if (!url.startsWith(BILLING_WHITELIST_BASE)) return false;
+  const next = url[BILLING_WHITELIST_BASE.length];
+  return next === undefined || next === '/' || next === '?' || next === '#';
+}
 
 @Injectable()
 export class SubscriptionActiveGuard implements CanActivate {
@@ -27,9 +39,9 @@ export class SubscriptionActiveGuard implements CanActivate {
       headers: Record<string, string | undefined>;
     }>();
 
-    // Whitelist hardcoded: /admin/billing/* é o único caminho de saída do
+    // Whitelist hardcoded: /admin/billing(/*) é o único caminho de saída do
     // past_due/cancelled (checkout, sync, cancel). Decorator esquecível seria pior.
-    if (req.url?.startsWith(BILLING_WHITELIST_PREFIX)) {
+    if (isBillingWhitelist(req.url)) {
       return true;
     }
 

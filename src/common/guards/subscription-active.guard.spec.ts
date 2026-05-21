@@ -205,4 +205,36 @@ describe('SubscriptionActiveGuard — past_due gating', () => {
     });
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
+
+  it('whitelist cobre /admin/billing raiz (sem sub-path) — past_due bloquearia escrita', async () => {
+    repo.findByTenantId.mockResolvedValue({ status: 'past_due' });
+    const ctx = mkContext({
+      method: 'POST',
+      url: '/admin/billing',
+      user: { tenantId: 't1' },
+    });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('whitelist cobre /admin/billing com query string', async () => {
+    repo.findByTenantId.mockResolvedValue({ status: 'past_due' });
+    const ctx = mkContext({
+      method: 'POST',
+      url: '/admin/billing?source=banner',
+      user: { tenantId: 't1' },
+    });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('NÃO faz match em /admin/billing-foo (boundary explícita)', async () => {
+    repo.findByTenantId.mockResolvedValue({ status: 'past_due' });
+    const ctx = mkContext({
+      method: 'POST',
+      url: '/admin/billing-foo',
+      user: { tenantId: 't1' },
+    });
+    await expect(guard.canActivate(ctx)).rejects.toMatchObject({
+      opts: { code: 'SUBSCRIPTION_PAST_DUE' },
+    });
+  });
 });

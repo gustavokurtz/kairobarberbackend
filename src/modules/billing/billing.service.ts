@@ -150,12 +150,19 @@ export class BillingService {
 
     const mappedStatus = mapRemoteStatus(remote.status, local.status);
     const nextSyncAt = computeNextSyncAt(mappedStatus, this.now());
+    const statusChanged = mappedStatus !== local.status;
 
+    // CRÍTICO: `Subscription.updatedAt` é @updatedAt do Prisma — qualquer update()
+    // o reescreve. Como `getBillingStatus.deadlineAt` e `findPastDueOverGrace` usam
+    // `updatedAt` como marco da transição pra past_due, deixar o sync (1x/hora)
+    // bumpar o campo faria a deadline deslizar pra sempre — payment-origin past_due
+    // nunca cancelaria. Pinar quando o status NÃO muda preserva o marco original.
     await this.repo.update(local.tenantId, {
       status: mappedStatus,
       currentPeriodEnd: remote.nextPaymentDate ?? local.currentPeriodEnd,
       lastSyncedAt: this.now(),
       nextSyncAt,
+      ...(statusChanged ? {} : { updatedAt: local.updatedAt }),
     });
 
     if (mappedStatus !== local.status) {
@@ -295,9 +302,13 @@ export class BillingService {
     // trial original já consumido) — induzia o usuário a achar que ganhou trial novo.
     // Agora mantemos o status atual; o sync (cron + on-demand) detecta o pagamento e
     // promove pra `active` quando confirmar. Trial só existe no signup.
+    // Preserva updatedAt original: checkout não conta como transição de status.
+    // Em past_due, manter o relógio honesto (o user paga DENTRO da janela ou
+    // perde — não pode resetar o grace clicando Renovar repetidamente).
     await this.repo.update(input.tenantId, {
       mpPreapprovalId: created.preapprovalId,
       nextSyncAt,
+      updatedAt: sub.updatedAt,
     });
 
     this.logger.log({
@@ -359,8 +370,11 @@ export class BillingService {
           mpPreapprovalId: sub.mpPreapprovalId,
           error: (err as Error).message,
         });
+        // Retry backoff: só toca em nextSyncAt — preserva updatedAt original
+        // pra deadline em past_due não deslizar (mesmo motivo do applyRemoteState).
         await this.repo.update(sub.tenantId, {
           nextSyncAt: new Date(now.getTime() + SYNC_RETRY_BACKOFF_MS),
+          updatedAt: sub.updatedAt,
         });
       }
     }
