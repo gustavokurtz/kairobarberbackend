@@ -45,7 +45,7 @@ export class BillingService {
     tenantId: string;
     tx?: Prisma.TransactionClient;
   }): Promise<Subscription> {
-    const trialDays = this.config.get<number>('BILLING_TRIAL_DAYS') ?? 3;
+    const trialDays = this.config.getOrThrow<number>('BILLING_TRIAL_DAYS');
     const trialEndsAt = new Date(this.now().getTime() + trialDays * 24 * 60 * 60 * 1000);
     const sub = await this.repo.create({
       tenantId: input.tenantId,
