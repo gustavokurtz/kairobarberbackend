@@ -31,7 +31,13 @@ function mkConfig(overrides: Record<string, unknown> = {}): ConfigService {
     MP_BILLING_FREQUENCY: 'months',
     ...overrides,
   };
-  return { get: (k: string) => map[k] } as ConfigService;
+  return {
+    get: (k: string) => map[k],
+    getOrThrow: (k: string) => {
+      if (!(k in map)) throw new Error(`Configuration key "${k}" does not exist`);
+      return map[k];
+    },
+  } as unknown as ConfigService;
 }
 
 describe('BillingService — checkout/sync', () => {
