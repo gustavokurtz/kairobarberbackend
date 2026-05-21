@@ -57,7 +57,11 @@ describe('AI Visagism — gating (e2e)', () => {
     expect(res.status).toBe(HttpStatus.NOT_FOUND);
   });
 
-  it('402 SUBSCRIPTION_INACTIVE quando subscription past_due', async () => {
+  it('404 TENANT_NOT_FOUND quando subscription past_due (alinha INV-07 storefront)', async () => {
+    // Storefront slug-scoped em past_due retorna 404 puro (não vaza estado de billing
+    // pra scraper). Comportamento garantido pelo PublicTenantMiddleware da spec
+    // billing-tightening (INV-07). F4 da billing-hardening-v2 (vetor A3) garante o
+    // mesmo no service-level do ai-visagism.
     const server = app.getHttpServer() as Express.Application;
     const { tenantId } = await createTenantOwner(app, 'pastdue-ai-shop', 'pastdue-ai@kairo.test');
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
@@ -70,8 +74,8 @@ describe('AI Visagism — gating (e2e)', () => {
       .post(`/public/${tenant.slug}/ai/visagism/consultations`)
       .field('consentAcceptedAt', freshConsentAt())
       .attach('photo', loadPhotoBuffer(), { filename: 'p.jpg', contentType: 'image/jpeg' });
-    expect(res.status).toBe(HttpStatus.PAYMENT_REQUIRED);
-    expect((res.body as { code: string }).code).toBe('SUBSCRIPTION_INACTIVE');
+    expect(res.status).toBe(HttpStatus.NOT_FOUND);
+    expect((res.body as { code: string }).code).toBe('TENANT_NOT_FOUND');
   });
 
   // Validação de idade do consentimento foi removida (MVP). O timestamp ainda é gravado

@@ -26,13 +26,26 @@ describe('Billing — past_due gating (e2e)', () => {
     await container.stop();
   });
 
+  // Hash determinístico do slug pra X-Forwarded-For: cada `registerAndLogin` vira
+  // um "cliente" distinto pro throttler, evitando bater no @Throttle(3/60s) do
+  // /auth/register/owner quando o spec faz 8+ signups em sequência. Funciona porque
+  // o custom ThrottlerBehindProxyGuard usa req.ips[0] (populado via trust proxy).
+  function slugToFakeIp(slug: string): string {
+    let h = 0;
+    for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) >>> 0;
+    // 10.x.x.x privado, evita confundir com IPs públicos reais em logs
+    return `10.${(h >>> 16) & 0xff}.${(h >>> 8) & 0xff}.${h & 0xff}`;
+  }
+
   async function registerAndLogin(slug: string): Promise<{
     accessToken: string;
     tenantId: string;
   }> {
     const server = app.getHttpServer() as unknown as import('http').Server;
+    const fakeIp = slugToFakeIp(slug);
     const reg = await request(server)
       .post('/auth/register/owner')
+      .set('X-Forwarded-For', fakeIp)
       .send({
         email: `${slug}@bill.test`,
         password: 'StrongPass!1',

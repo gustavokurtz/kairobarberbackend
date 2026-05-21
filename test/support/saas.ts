@@ -23,6 +23,16 @@ export async function createSaasOwner(
   return { id: user.id, email: user.email, accessToken: pair.accessToken };
 }
 
+// Hash determinístico do slug pra X-Forwarded-For: cada chamada vira "cliente"
+// distinto pro throttler, evitando bater no @Throttle(3/60s) do /auth/register/owner
+// quando specs fazem múltiplos signups. Funciona porque o custom
+// ThrottlerBehindProxyGuard usa req.ips[0] (populado via trust proxy nos e2e).
+function slugToFakeIp(slug: string): string {
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) >>> 0;
+  return `10.${(h >>> 16) & 0xff}.${(h >>> 8) & 0xff}.${h & 0xff}`;
+}
+
 export async function createTenantOwner(
   app: INestApplication,
   slug: string,
@@ -31,6 +41,7 @@ export async function createTenantOwner(
   const server = app.getHttpServer() as unknown as import('http').Server;
   const reg = await request(server)
     .post('/auth/register/owner')
+    .set('X-Forwarded-For', slugToFakeIp(slug))
     .send({
       email,
       password: 'StrongPass!1',
