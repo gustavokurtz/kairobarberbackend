@@ -253,10 +253,13 @@ export class AiVisagismService {
   private async assertSubscriptionAllowed(tenantId: string): Promise<void> {
     const sub = await this.prisma.subscription.findUnique({ where: { tenantId } });
     if (!sub || sub.status === 'cancelled' || sub.status === 'past_due') {
+      // F4/A3: alinha INV-16 — storefront em past_due/cancelled retorna 404 puro
+      // (não vaza estado de billing pra scraper). PublicTenantMiddleware já barra
+      // em /public/:slug/*; esta é defesa em camadas no service-level.
       throw new DomainException({
-        code: ErrorCodes.SUBSCRIPTION_INACTIVE,
-        message: 'A barbearia não está com assinatura ativa.',
-        status: HttpStatus.PAYMENT_REQUIRED,
+        code: ErrorCodes.TENANT_NOT_FOUND,
+        message: 'Barbearia não encontrada.',
+        status: HttpStatus.NOT_FOUND,
       });
     }
   }
