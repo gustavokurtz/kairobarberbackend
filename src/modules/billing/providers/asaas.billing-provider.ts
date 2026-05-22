@@ -223,15 +223,42 @@ export class AsaasBillingProvider implements BillingProvider {
   }
 
   private async request(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown) {
-    const res = await this.fetchImpl(`${this.opts.apiBaseUrl}${path}`, {
-      method,
-      headers: {
-        access_token: this.opts.apiKey,
-        'Content-Type': 'application/json',
-        'User-Agent': 'kairobarber-api',
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    let res: Response;
+    try {
+      res = await this.fetchImpl(`${this.opts.apiBaseUrl}${path}`, {
+        method,
+        headers: {
+          access_token: this.opts.apiKey,
+          'Content-Type': 'application/json',
+          'User-Agent': 'kairobarber-api',
+        },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        // A2 / R-F3-02: 10s cobre p99 do Asaas (latência normal 1-3s) sem pendurar
+        // workers indefinidamente. SYNC_RETRY_BACKOFF_MS continua intacto no cycle —
+        // este timeout é só pra interromper a chamada individual.
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (err) {
+      // R-F3-03: AbortSignal.timeout dispara DOMException name='TimeoutError'.
+      // AbortError externo (controller.abort()) também é capturado pela mesma classe.
+      // Outros erros (TypeError network failure, etc.) propagam crus — mantém comportamento.
+      const name = (err as Error).name;
+      if (name === 'TimeoutError' || name === 'AbortError') {
+        this.logger.warn({
+          event: 'asaas.request_timeout',
+          method,
+          path,
+          timeoutMs: 10_000,
+        });
+        throw new DomainException({
+          code: ErrorCodes.BILLING_PROVIDER_ERROR,
+          message: 'Timeout na comunicação com Asaas.',
+          status: HttpStatus.GATEWAY_TIMEOUT,
+          details: { method, path },
+        });
+      }
+      throw err;
+    }
     if (res.ok) return res;
 
     const errBody = await safeJson(res);

@@ -1,3 +1,5 @@
+import { HttpStatus } from '@nestjs/common';
+import { ErrorCodes } from 'src/common/exceptions/error-codes';
 import { AsaasBillingProvider } from './asaas.billing-provider';
 
 type FetchSignature = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -529,6 +531,62 @@ describe('AsaasBillingProvider', () => {
       fetchMock.mockResolvedValueOnce(jsonRes(500, { errors: [{ description: 'boom' }] }));
       const out = await provider.healthCheck();
       expect(out).toEqual({ ok: false });
+    });
+  });
+
+  describe('request() timeout (A2 / R-F3-02 + R-F3-03)', () => {
+    it('passa AbortSignal.timeout(10_000) no init do fetch', async () => {
+      fetchMock.mockResolvedValueOnce(jsonRes(200, { data: [], hasMore: false, totalCount: 0 }));
+      await provider.healthCheck();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [, init] = fetchMock.mock.calls[0];
+      expect(init?.signal).toBeDefined();
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      expect((init?.signal as AbortSignal).aborted).toBe(false);
+    });
+
+    it('mapeia TimeoutError do fetch pra DomainException 504 BILLING_PROVIDER_ERROR', async () => {
+      const timeoutErr = new DOMException(
+        'The operation was aborted due to timeout',
+        'TimeoutError',
+      );
+      fetchMock.mockRejectedValueOnce(timeoutErr);
+      await expect(provider.listPayments('sub_X', { page: 1, pageSize: 20 })).rejects.toMatchObject(
+        {
+          opts: {
+            code: ErrorCodes.BILLING_PROVIDER_ERROR,
+            status: HttpStatus.GATEWAY_TIMEOUT,
+          },
+        },
+      );
+    });
+
+    it('mapeia AbortError externo pra DomainException 504 (mesma classe)', async () => {
+      const abortErr = new DOMException('Aborted', 'AbortError');
+      fetchMock.mockRejectedValueOnce(abortErr);
+      await expect(provider.listPayments('sub_Y', { page: 1, pageSize: 20 })).rejects.toMatchObject(
+        {
+          opts: {
+            code: ErrorCodes.BILLING_PROVIDER_ERROR,
+            status: HttpStatus.GATEWAY_TIMEOUT,
+          },
+        },
+      );
+    });
+
+    it('preserva method+path nos details da DomainException de timeout', async () => {
+      const timeoutErr = new DOMException('Timeout', 'TimeoutError');
+      fetchMock.mockRejectedValueOnce(timeoutErr);
+      await expect(provider.listPayments('sub_Z', { page: 1, pageSize: 20 })).rejects.toMatchObject(
+        {
+          opts: {
+            details: {
+              method: 'GET',
+              path: expect.stringContaining('/v3/subscriptions/sub_Z/payments') as unknown,
+            },
+          },
+        },
+      );
     });
   });
 });
