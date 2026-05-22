@@ -47,7 +47,15 @@ describe('BillingService — crons', () => {
     repo = mkRepo();
     provider = mkProvider();
     const audit = { record: jest.fn().mockResolvedValue(undefined) } as unknown as AuditService;
-    svc = new BillingService(repo as never, provider, mkConfig(), new Logger('test'), audit);
+    svc = new BillingService(
+      repo as never,
+      provider,
+      mkConfig(),
+      new Logger('test'),
+      audit,
+      // F4/A4: prisma stub — não exercitado pelo runBillingSync.
+      { $transaction: jest.fn() } as never,
+    );
   });
   afterEach(() => jest.useRealTimers());
 

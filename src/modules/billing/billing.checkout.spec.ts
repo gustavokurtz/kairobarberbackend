@@ -40,6 +40,28 @@ function mkConfig(overrides: Record<string, unknown> = {}): ConfigService {
   } as unknown as ConfigService;
 }
 
+// F4/A4: prisma.$transaction(callback) é mockado pra rodar o callback com um "tx" que
+// delega lookups/updates pra `repo` (mockado). Preserva semântica de testes que usam
+// mockResolvedValue/mockImplementation em repo.findByTenantId.
+function mkPrisma(repoRef: ReturnType<typeof mkRepo>) {
+  return {
+    $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        subscription: {
+          findUnique: (args: { where: { tenantId: string } }): Promise<unknown> =>
+            repoRef.findByTenantId(args.where.tenantId) as Promise<unknown>,
+          update: (args: {
+            where: { tenantId: string };
+            data: Record<string, unknown>;
+          }): Promise<unknown> =>
+            repoRef.update(args.where.tenantId, args.data) as Promise<unknown>,
+        },
+      };
+      return callback(tx);
+    }),
+  };
+}
+
 describe('BillingService — checkout/sync', () => {
   let repo: ReturnType<typeof mkRepo>;
   let provider: ReturnType<typeof mkProvider>;
@@ -50,7 +72,14 @@ describe('BillingService — checkout/sync', () => {
     repo = mkRepo();
     provider = mkProvider();
     const audit = { record: jest.fn().mockResolvedValue(undefined) } as unknown as AuditService;
-    svc = new BillingService(repo as never, provider, mkConfig(), new Logger('test'), audit);
+    svc = new BillingService(
+      repo as never,
+      provider,
+      mkConfig(),
+      new Logger('test'),
+      audit,
+      mkPrisma(repo) as never,
+    );
   });
   afterEach(() => jest.useRealTimers());
 
@@ -197,6 +226,7 @@ describe('BillingService — checkout/sync', () => {
         mkConfig({ BILLING_PROVIDER: 'asaas', ASAAS_PLAN_AMOUNT_CENTS: 500 }),
         new Logger('test'),
         { record: jest.fn().mockResolvedValue(undefined) } as unknown as AuditService,
+        mkPrisma(repo) as never,
       );
       repo.findByTenantId.mockResolvedValue({
         tenantId: 't1',
@@ -221,6 +251,7 @@ describe('BillingService — checkout/sync', () => {
         mkConfig({ BILLING_PROVIDER: 'asaas', ASAAS_PLAN_AMOUNT_CENTS: 500 }),
         new Logger('test'),
         { record: jest.fn().mockResolvedValue(undefined) } as unknown as AuditService,
+        mkPrisma(repo) as never,
       );
       repo.findByTenantId.mockResolvedValue({
         tenantId: 't1',
@@ -258,6 +289,92 @@ describe('BillingService — checkout/sync', () => {
           ownerName: 'Owner X',
         }),
       ).rejects.toMatchObject({ opts: { code: 'SUBSCRIPTION_NOT_FOUND' } });
+    });
+
+    it('CHECKOUT_RACE_DETECTED (409) se mpPreapprovalId mudar entre leitura inicial e TX1 pre-HTTP (F4/A4)', async () => {
+      // Simula: leitura inicial vê mp=A; quando a TX1 re-lê, DB já tem mp=B
+      // (outro checkout completou meanwhile). Perdedora aborta ANTES de gastar HTTP.
+      let callCount = 0;
+      repo.findByTenantId.mockImplementation(() => {
+        callCount += 1;
+        if (callCount === 1) {
+          // 1ª: leitura inicial — vê mp=A, status=past_due
+          return Promise.resolve({
+            tenantId: 't1',
+            status: 'past_due',
+            mpPreapprovalId: 'PRE-A',
+            updatedAt: new Date('2026-05-21T10:00:00Z'),
+          });
+        }
+        // 2ª+: re-leitura na TX1 — DB já tem mp=B (outro checkout escreveu)
+        return Promise.resolve({
+          tenantId: 't1',
+          status: 'past_due',
+          mpPreapprovalId: 'PRE-B',
+          updatedAt: new Date('2026-05-21T10:00:05Z'),
+        });
+      });
+
+      await expect(
+        svc.createCheckout({
+          tenantId: 't1',
+          tenantSlug: 's',
+          ownerEmail: 'a@x.com',
+          ownerName: 'Owner X',
+        }),
+      ).rejects.toMatchObject({
+        opts: { code: 'CHECKOUT_RACE_DETECTED', status: 409 },
+      });
+
+      // Race detectada pre-HTTP — createPreapproval NÃO foi chamado
+      expect(provider.createPreapproval).not.toHaveBeenCalled();
+    });
+
+    it('CHECKOUT_RACE_DETECTED (409) + cleanup se mp mudar entre TX1 e TX2 (F4/A4)', async () => {
+      // Simula race POST-HTTP: TX1 valida ok (init+TX1 veem mp=A), HTTP roda criando
+      // PRE-NEW, DB muda meanwhile pra mp=Z, TX2 detecta e aborta. Cleanup deve
+      // cancelar PRE-NEW (perdedor não pode deixar órfão no Asaas).
+      let callCount = 0;
+      repo.findByTenantId.mockImplementation(() => {
+        callCount += 1;
+        if (callCount <= 2) {
+          // 1ª (init) + 2ª (TX1): ainda mp=A
+          return Promise.resolve({
+            tenantId: 't1',
+            status: 'past_due',
+            mpPreapprovalId: 'PRE-A',
+            updatedAt: new Date('2026-05-21T10:00:00Z'),
+          });
+        }
+        // 3ª (TX2): DB mudou pra mp=Z meanwhile
+        return Promise.resolve({
+          tenantId: 't1',
+          status: 'past_due',
+          mpPreapprovalId: 'PRE-Z',
+          updatedAt: new Date('2026-05-21T10:00:10Z'),
+        });
+      });
+      provider.cancelPreapproval.mockResolvedValue(undefined);
+      provider.createPreapproval.mockResolvedValue({
+        preapprovalId: 'PRE-NEW',
+        initPoint: 'https://asaas.test/i/PRE-NEW',
+      });
+
+      await expect(
+        svc.createCheckout({
+          tenantId: 't1',
+          tenantSlug: 's',
+          ownerEmail: 'a@x.com',
+          ownerName: 'Owner X',
+        }),
+      ).rejects.toMatchObject({
+        opts: { code: 'CHECKOUT_RACE_DETECTED', status: 409 },
+      });
+
+      // Cleanup: cancelPreapproval chamado com PRE-NEW (preapproval órfão)
+      expect(provider.cancelPreapproval).toHaveBeenCalledWith('PRE-NEW');
+      // createPreapproval só rodou 1x (não retry após race)
+      expect(provider.createPreapproval).toHaveBeenCalledTimes(1);
     });
   });
 

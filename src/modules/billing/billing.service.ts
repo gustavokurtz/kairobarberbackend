@@ -5,6 +5,7 @@ import { AuditActions } from 'src/common/audit/audit-actions';
 import { AuditService } from 'src/common/audit/audit.service';
 import { DomainException } from 'src/common/exceptions/domain.exception';
 import { ErrorCodes } from 'src/common/exceptions/error-codes';
+import { PrismaService } from 'src/infra/prisma/prisma.service';
 import {
   SYNC_BATCH_SIZE,
   SYNC_INTERVAL_BY_STATUS,
@@ -34,6 +35,7 @@ export class BillingService {
     private readonly config: ConfigService,
     private readonly logger: Logger,
     private readonly audit: AuditService,
+    private readonly prisma: PrismaService,
   ) {}
 
   now(): Date {
@@ -262,8 +264,31 @@ export class BillingService {
       });
     }
 
-    // Cancela preapproval anterior (se existir) ANTES de criar um novo, pra não deixar
-    // subscriptions órfãs ativas no gateway gerando cobrança duplicada no próximo ciclo.
+    // F4/A4 TX1: race-check pre-HTTP. Se outro checkout completou e mudou
+    // mpPreapprovalId entre a leitura inicial e agora, abortar antes de gastar
+    // chamadas HTTP no Asaas. D-09 do spec: re-leitura é best-effort sob READ
+    // COMMITTED (não FOR UPDATE), aceito vs custo de lock pessimista.
+    await this.prisma.$transaction(async (tx) => {
+      const subFresh = await tx.subscription.findUnique({
+        where: { tenantId: input.tenantId },
+      });
+      if (!subFresh) {
+        throw new DomainException({
+          code: ErrorCodes.SUBSCRIPTION_NOT_FOUND,
+          message: 'Assinatura não encontrada.',
+          status: HttpStatus.NOT_FOUND,
+        });
+      }
+      if (subFresh.mpPreapprovalId !== sub.mpPreapprovalId) {
+        throw new DomainException({
+          code: ErrorCodes.CHECKOUT_RACE_DETECTED,
+          message: 'Outro checkout em andamento. Tente novamente em alguns segundos.',
+          status: HttpStatus.CONFLICT,
+        });
+      }
+    });
+
+    // Cancela preapproval anterior FORA da tx (HTTP — não pode segurar DB lock).
     // cancelPreapproval é idempotente em 404, então é seguro chamar mesmo se o id já sumiu lá.
     if (sub.mpPreapprovalId) {
       try {
@@ -305,11 +330,61 @@ export class BillingService {
     // Preserva updatedAt original: checkout não conta como transição de status.
     // Em past_due, manter o relógio honesto (o user paga DENTRO da janela ou
     // perde — não pode resetar o grace clicando Renovar repetidamente).
-    await this.repo.update(input.tenantId, {
-      mpPreapprovalId: created.preapprovalId,
-      nextSyncAt,
-      updatedAt: sub.updatedAt,
-    });
+    //
+    // F4/A4 TX2: race-check post-HTTP + update atômico. Se DB mudou entre TX1 e TX2
+    // (outro checkout escreveu durante nossa chamada HTTP), abortar + cleanup do
+    // preapproval recém-criado pra não deixar órfão no Asaas.
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const subFresh2 = await tx.subscription.findUnique({
+          where: { tenantId: input.tenantId },
+        });
+        if (!subFresh2) {
+          throw new DomainException({
+            code: ErrorCodes.SUBSCRIPTION_NOT_FOUND,
+            message: 'Assinatura não encontrada.',
+            status: HttpStatus.NOT_FOUND,
+          });
+        }
+        if (subFresh2.mpPreapprovalId !== sub.mpPreapprovalId) {
+          throw new DomainException({
+            code: ErrorCodes.CHECKOUT_RACE_DETECTED,
+            message: 'Outro checkout em andamento. Tente novamente em alguns segundos.',
+            status: HttpStatus.CONFLICT,
+          });
+        }
+        await tx.subscription.update({
+          where: { tenantId: input.tenantId },
+          data: {
+            mpPreapprovalId: created.preapprovalId,
+            nextSyncAt,
+            updatedAt: sub.updatedAt,
+          },
+        });
+      });
+    } catch (err) {
+      if (err instanceof DomainException && err.opts.code === ErrorCodes.CHECKOUT_RACE_DETECTED) {
+        // Cleanup best-effort do preapproval recém-criado (perdedor não pode deixar
+        // órfão no Asaas — gastaria cobrança duplicada). Falha de cleanup é logada
+        // mas não impede o throw — pior caso, órfão no gateway até admin investigar.
+        try {
+          await this.provider.cancelPreapproval(created.preapprovalId);
+        } catch (cleanupErr) {
+          this.logger.warn({
+            event: 'subscription.race_cleanup_failed',
+            tenantId: input.tenantId,
+            orphanPreapprovalId: created.preapprovalId,
+            error: (cleanupErr as Error).message,
+          });
+        }
+        this.logger.warn({
+          event: 'subscription.checkout_race_detected',
+          tenantId: input.tenantId,
+          attemptedPreapprovalId: created.preapprovalId,
+        });
+      }
+      throw err;
+    }
 
     this.logger.log({
       event: 'subscription.checkout_created',

@@ -64,6 +64,9 @@ describe('BillingService — core', () => {
       mkConfig(),
       new Logger('test'),
       audit as unknown as AuditService,
+      // F4/A4: prisma.$transaction mock — não exercitado neste spec (testa runTrialCheck
+      // e getBillingStatus, não createCheckout). Stub minimal pra constructor.
+      { $transaction: jest.fn() } as never,
     );
   });
 
@@ -162,7 +165,7 @@ describe('BillingService — core', () => {
     beforeEach(() => {
       // Concurrency guard re-fetch: por padrão, current DB state bate com o `local`
       // que cada teste passa. Casos de race fazem override próprio.
-      repo.findByTenantId.mockImplementation(async () => baseSub);
+      repo.findByTenantId.mockImplementation(() => Promise.resolve(baseSub));
     });
 
     it('authorized → active e seta currentPeriodEnd + nextSyncAt = now+24h', async () => {
