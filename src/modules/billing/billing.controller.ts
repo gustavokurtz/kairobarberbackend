@@ -78,6 +78,11 @@ export class BillingController {
 
   @Post('sync')
   @AllowInactiveSubscription()
+  // A1: tenant past_due polling agressivamente pode pendurar 1000 req/s contra Asaas
+  // → risco de rate-limit da nossa conta inteira. 5/60s/IP é generoso pra polling
+  // legítimo pós-pagamento (user clica "atualizei, sincroniza") mas fecha abuso.
+  // D-06: NÃO usar 3/60s (apertado se Asaas demora > 20s) nem 10/60s (permissivo demais).
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   async sync(@CurrentTenant() tenantId: string) {
     await this.billing.syncSubscription(tenantId);
