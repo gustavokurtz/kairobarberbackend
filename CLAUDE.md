@@ -75,6 +75,22 @@ Se uma decisão arquitetural do spec parece errada hoje:
 2. Atualize o spec (decisão + razão).
 3. Depois implemente.
 
+### 3.5 NÃO rodar `pnpm test:e2e` — pedir pro Gustavo rodar
+
+Testcontainers (Postgres+Redis) no ambiente do Gustavo trava com frequência: jest pendura sem CPU/output, deixa zumbis de horas e bloqueia próximas execuções. **NÃO disparar `pnpm test:e2e` nem variações (`-- billing`, `-t "..."`, etc.) por conta própria** — mesmo em background. **Sempre pedir pro Gustavo rodar localmente e colar o output.**
+
+**Pode rodar livremente:**
+- `pnpm test` (unit — Jest puro, sem testcontainers)
+- `pnpm jest <path>` específico de unit
+- `pnpm lint`, `pnpm build`
+- `pnpm prisma migrate dev` (em dev local com docker compose up)
+
+**Workflow correto pra mudanças que envolveriam E2E:**
+1. Crie/edite o spec E2E no arquivo (`test/e2e/*.e2e-spec.ts`).
+2. Rode unit + lint + build pra garantir não-regressão estática.
+3. Reporte estado pro Gustavo e peça: "rode `pnpm test:e2e -- <nome>` e me cola o output" — sem disparar você mesmo.
+4. Diagnostique com base no output que ele colou.
+
 ---
 
 ## 4. Stack travada (resumo)
