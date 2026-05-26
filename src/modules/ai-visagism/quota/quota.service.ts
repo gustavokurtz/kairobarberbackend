@@ -24,9 +24,7 @@ export class QuotaService {
    *
    * @throws DomainException(AI_QUOTA_EXCEEDED, 429) se estourou.
    */
-  async chargeOrThrow(
-    tenantId: string,
-  ): Promise<{ used: number; limit: number; status: string }> {
+  async chargeOrThrow(tenantId: string): Promise<{ used: number; limit: number; status: string }> {
     const charged = await this.repo.tryIncrement(tenantId, this.trialQuota, this.activeQuota);
     if (charged) {
       const limit = this.resolveLimit(charged.status);

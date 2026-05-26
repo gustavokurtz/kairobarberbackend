@@ -13,8 +13,7 @@ function makeService() {
     listRecentByTenant: jest.fn(),
   } as unknown as AiConsultationRepository;
   const quota = {
-    resolveLimit: (status: string) =>
-      status === 'trialing' ? 10 : status === 'active' ? 30 : 0,
+    resolveLimit: (status: string) => (status === 'trialing' ? 10 : status === 'active' ? 30 : 0),
   } as unknown as QuotaService;
   const service = new SaasAiUsageService(prisma, aiRepo, quota);
   return { service, findMany, count };
