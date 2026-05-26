@@ -42,12 +42,13 @@ describe('AI Visagism — cota mensal (e2e)', () => {
     await prisma.aiConsultation.deleteMany({});
   });
 
-  it('429 AI_QUOTA_EXCEEDED quando aiQuotaUsedThisMonth >= limite', async () => {
+  it('429 AI_QUOTA_EXCEEDED quando aiQuotaUsedThisMonth >= limite (trialing → 10)', async () => {
     const server = app.getHttpServer() as Express.Application;
     const { tenantId } = await createTenantOwner(app, 'quota-shop', 'quota-test@kairo.test');
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) throw new Error('tenant');
-    await setQuotaUsage(prisma, tenantId, 100);
+    // Tenant novo é trialing — limite efetivo é 10. Setar uso em 10 já estoura.
+    await setQuotaUsage(prisma, tenantId, 10);
 
     const res = await request(server)
       .post(`/public/${tenant.slug}/ai/visagism/consultations`)
@@ -56,7 +57,7 @@ describe('AI Visagism — cota mensal (e2e)', () => {
 
     expect(res.status).toBe(HttpStatus.TOO_MANY_REQUESTS);
     expect((res.body as { code: string }).code).toBe('AI_QUOTA_EXCEEDED');
-    expect((res.body as { details: { limit: number } }).details.limit).toBe(100);
+    expect((res.body as { details: { limit: number } }).details.limit).toBe(10);
   });
 
   it('runQuotaResetJob zera aiQuotaUsedThisMonth para todos tenants', async () => {
