@@ -63,7 +63,7 @@ describe('AI Visagism — happy path (e2e)', () => {
       id: expect.any(String),
       viewToken: expect.any(String),
       status: AiConsultationStatus.queued,
-      quota: { used: 1, limit: 100 },
+      quota: { used: 1, limit: 10 },
     });
     const { id, viewToken } = createRes.body as { id: string; viewToken: string };
 

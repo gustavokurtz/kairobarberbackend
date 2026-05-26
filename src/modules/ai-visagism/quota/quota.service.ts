@@ -6,28 +6,40 @@ import { QuotaRepository } from './quota.repository';
 
 @Injectable()
 export class QuotaService {
-  private readonly limit: number;
+  private readonly trialQuota: number;
+  private readonly activeQuota: number;
 
   constructor(
     private readonly repo: QuotaRepository,
     cfg: ConfigService,
     private readonly logger: Logger,
   ) {
-    this.limit = cfg.getOrThrow<number>('AI_VISAGISM_MONTHLY_QUOTA');
+    this.trialQuota = cfg.getOrThrow<number>('AI_VISAGISM_TRIAL_QUOTA');
+    this.activeQuota = cfg.getOrThrow<number>('AI_VISAGISM_ACTIVE_QUOTA');
   }
 
-  /** @throws DomainException(AI_QUOTA_EXCEEDED) se cota esgotada. */
-  async chargeOrThrow(tenantId: string): Promise<{ used: number; limit: number }> {
-    const used = await this.repo.tryIncrement(tenantId, this.limit);
-    if (used === null) {
-      throw new DomainException({
-        code: ErrorCodes.AI_QUOTA_EXCEEDED,
-        message: `Cota mensal de consultas de IA esgotada (${this.limit}).`,
-        status: HttpStatus.TOO_MANY_REQUESTS,
-        details: { limit: this.limit },
-      });
+  /**
+   * Débito atômico: incrementa aiQuotaUsedThisMonth se used < limite-do-status.
+   * Limite é resolvido no SQL via CASE.
+   *
+   * @throws DomainException(AI_QUOTA_EXCEEDED, 429) se estourou.
+   */
+  async chargeOrThrow(tenantId: string): Promise<{ used: number; limit: number; status: string }> {
+    const charged = await this.repo.tryIncrement(tenantId, this.trialQuota, this.activeQuota);
+    if (charged) {
+      const limit = this.resolveLimit(charged.status);
+      return { used: charged.used, limit, status: charged.status };
     }
-    return { used, limit: this.limit };
+
+    // Caminho de erro: SELECT auxiliar pra montar a mensagem com o limit correto.
+    const status = await this.repo.getStatus(tenantId);
+    const limit = status ? this.resolveLimit(status) : 0;
+    throw new DomainException({
+      code: ErrorCodes.AI_QUOTA_EXCEEDED,
+      message: `Cota mensal de consultas de IA esgotada (${limit}).`,
+      status: HttpStatus.TOO_MANY_REQUESTS,
+      details: { limit },
+    });
   }
 
   async refund(tenantId: string): Promise<void> {
@@ -48,7 +60,18 @@ export class QuotaService {
     return count;
   }
 
-  get monthlyLimit(): number {
-    return this.limit;
+  /** Helper público pros services SaaS (ai-usage, tenant detail) resolverem o limite a partir do status. */
+  resolveLimit(status: string): number {
+    if (status === 'trialing') return this.trialQuota;
+    if (status === 'active') return this.activeQuota;
+    return 0;
+  }
+
+  get trialLimit(): number {
+    return this.trialQuota;
+  }
+
+  get activeLimit(): number {
+    return this.activeQuota;
   }
 }

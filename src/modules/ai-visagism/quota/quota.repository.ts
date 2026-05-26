@@ -6,19 +6,51 @@ export class QuotaRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Incremento atômico: só incrementa se `aiQuotaUsedThisMonth < limit`.
-   * Retorna o novo valor, ou null se a cota estava esgotada.
+   * Incremento atômico com limite resolvido por status:
+   *   - trialing → trialLimit
+   *   - active   → activeLimit
+   *   - past_due/cancelled → 0 (nunca incrementa; CASE retorna 0)
+   *
+   * Retorna { used, status } se incrementou; null se estourou (ou status não cobre).
+   * Atomic via Postgres em 1 round-trip — sem race condition.
    */
-  async tryIncrement(tenantId: string, limit: number): Promise<number | null> {
-    const rows = await this.prisma.$queryRaw<{ ai_quota_used_this_month: number }[]>`
+  async tryIncrement(
+    tenantId: string,
+    trialLimit: number,
+    activeLimit: number,
+  ): Promise<{ used: number; status: string } | null> {
+    const rows = await this.prisma.$queryRaw<
+      { ai_quota_used_this_month: number; status: string }[]
+    >`
       UPDATE "Subscription"
       SET "aiQuotaUsedThisMonth" = "aiQuotaUsedThisMonth" + 1,
           "updatedAt" = NOW()
       WHERE "tenantId" = ${tenantId}
-        AND "aiQuotaUsedThisMonth" < ${limit}
-      RETURNING "aiQuotaUsedThisMonth" AS ai_quota_used_this_month
+        AND "aiQuotaUsedThisMonth" < (
+          CASE "status"
+            WHEN 'trialing' THEN ${trialLimit}::int
+            WHEN 'active'   THEN ${activeLimit}::int
+            ELSE 0
+          END
+        )
+      RETURNING "aiQuotaUsedThisMonth" AS ai_quota_used_this_month,
+                "status" AS status
     `;
-    return rows[0]?.ai_quota_used_this_month ?? null;
+    const row = rows[0];
+    if (!row) return null;
+    return { used: row.ai_quota_used_this_month, status: row.status };
+  }
+
+  /**
+   * SELECT auxiliar usado apenas no caminho de erro 429,
+   * pra montar a mensagem com o limite correto. Não usado no caminho feliz.
+   */
+  async getStatus(tenantId: string): Promise<string | null> {
+    const row = await this.prisma.subscription.findUnique({
+      where: { tenantId },
+      select: { status: true },
+    });
+    return row?.status ?? null;
   }
 
   /**

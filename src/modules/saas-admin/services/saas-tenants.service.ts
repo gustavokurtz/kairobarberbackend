@@ -4,12 +4,14 @@ import { AuditActions } from 'src/common/audit/audit-actions';
 import { DomainException } from 'src/common/exceptions/domain.exception';
 import { ErrorCodes } from 'src/common/exceptions/error-codes';
 import { ListTenantsArgs, SaasTenantRepository } from '../repositories/saas-tenant.repository';
+import { QuotaService } from 'src/modules/ai-visagism/quota/quota.service';
 
 @Injectable()
 export class SaasTenantsService {
   constructor(
     private readonly repo: SaasTenantRepository,
     private readonly audit: AuditService,
+    private readonly quota: QuotaService,
   ) {}
 
   async list(args: ListTenantsArgs) {
@@ -61,6 +63,7 @@ export class SaasTenantsService {
             currentPeriodEnd: t.subscription.currentPeriodEnd,
             mpPreapprovalId: t.subscription.mpPreapprovalId,
             aiQuotaUsedThisMonth: t.subscription.aiQuotaUsedThisMonth,
+            aiQuotaLimit: this.quota.resolveLimit(t.subscription.status),
           }
         : null,
       counters: res.counters,
