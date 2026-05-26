@@ -119,7 +119,8 @@ export const envValidationSchema = Joi.object({
 
   // AI Visagism (Fase 6)
   AI_VISAGISM_PROVIDER: Joi.string().valid('console', 'aisdk').default('console'),
-  AI_VISAGISM_MONTHLY_QUOTA: Joi.number().integer().min(0).default(100),
+  AI_VISAGISM_TRIAL_QUOTA: Joi.number().integer().min(0).default(10),
+  AI_VISAGISM_ACTIVE_QUOTA: Joi.number().integer().min(0).default(30),
   AI_VISAGISM_RETENTION_DAYS: Joi.number().integer().min(1).max(365).default(7),
   AI_VISAGISM_CLEANUP_CRON: Joi.string().default('0 3 * * *'),
   AI_VISAGISM_QUOTA_RESET_CRON: Joi.string().default('5 0 1 * *'),
@@ -193,7 +194,8 @@ export type AppEnv = {
   SAAS_OWNER_NAME?: string;
   ALLOW_PROD_SEED?: 'true' | 'false';
   AI_VISAGISM_PROVIDER: 'console' | 'aisdk';
-  AI_VISAGISM_MONTHLY_QUOTA: number;
+  AI_VISAGISM_TRIAL_QUOTA: number;
+  AI_VISAGISM_ACTIVE_QUOTA: number;
   AI_VISAGISM_RETENTION_DAYS: number;
   AI_VISAGISM_CLEANUP_CRON: string;
   AI_VISAGISM_QUOTA_RESET_CRON: string;
