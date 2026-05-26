@@ -8,6 +8,7 @@ describe('SaasTenantsService', () => {
   >;
   let audit: jest.Mocked<Pick<AuditService, 'record'>>;
   let svc: SaasTenantsService;
+  let quota: { resolveLimit: jest.Mock };
 
   beforeEach(() => {
     repo = {
@@ -17,9 +18,15 @@ describe('SaasTenantsService', () => {
       setSuspended: jest.fn(),
     };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
+    quota = {
+      resolveLimit: jest.fn((status: string) =>
+        status === 'trialing' ? 10 : status === 'active' ? 30 : 0,
+      ),
+    };
     svc = new SaasTenantsService(
       repo as unknown as SaasTenantRepository,
       audit as unknown as AuditService,
+      quota as never,
     );
   });
 
@@ -101,5 +108,57 @@ describe('SaasTenantsService', () => {
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'tenant.unsuspended', tenantId: 't1' }),
     );
+  });
+
+  it('detail inclui aiQuotaLimit=10 em subscription trialing', async () => {
+    repo.findOneDetailed.mockResolvedValueOnce({
+      tenant: {
+        id: 't1',
+        slug: 'demo',
+        name: 'Demo',
+        bio: null,
+        owner: { email: 'a@b.c' },
+        suspendedAt: null,
+        createdAt: new Date(),
+        subscription: {
+          status: 'trialing',
+          trialEndsAt: new Date(),
+          currentPeriodEnd: null,
+          mpPreapprovalId: null,
+          aiQuotaUsedThisMonth: 2,
+        },
+      },
+      counters: {},
+    } as never);
+    const result = await svc.detail('t1');
+    expect(result.subscription).toMatchObject({
+      status: 'trialing',
+      aiQuotaUsedThisMonth: 2,
+      aiQuotaLimit: 10,
+    });
+  });
+
+  it('detail inclui aiQuotaLimit=30 em subscription active', async () => {
+    repo.findOneDetailed.mockResolvedValueOnce({
+      tenant: {
+        id: 't2',
+        slug: 'pago',
+        name: 'Pago',
+        bio: null,
+        owner: { email: 'a@b.c' },
+        suspendedAt: null,
+        createdAt: new Date(),
+        subscription: {
+          status: 'active',
+          trialEndsAt: null,
+          currentPeriodEnd: new Date(),
+          mpPreapprovalId: 'pp_x',
+          aiQuotaUsedThisMonth: 18,
+        },
+      },
+      counters: {},
+    } as never);
+    const result = await svc.detail('t2');
+    expect(result.subscription).toMatchObject({ aiQuotaLimit: 30 });
   });
 });
