@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
 import { AiConsultationRepository } from 'src/modules/ai-visagism/repositories/ai-consultation.repository';
+import { QuotaService } from 'src/modules/ai-visagism/quota/quota.service';
 
 @Injectable()
 export class SaasAiUsageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiRepo: AiConsultationRepository,
+    private readonly quota: QuotaService,
   ) {}
 
   async snapshot(args: { page: number; pageSize: number; detailed?: boolean }) {
@@ -29,6 +31,7 @@ export class SaasAiUsageService {
       tenantSlug: s.tenant.slug,
       tenantName: s.tenant.name,
       aiQuotaUsedThisMonth: s.aiQuotaUsedThisMonth,
+      aiQuotaLimit: this.quota.resolveLimit(s.status),
     }));
 
     if (args.detailed) {

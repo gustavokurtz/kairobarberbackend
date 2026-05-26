@@ -36,6 +36,6 @@ import { AiSdkVisagismProvider } from './providers/ai-sdk-visagism.provider';
       inject: [ConfigService],
     },
   ],
-  exports: [AiVisagismService, AiConsultationRepository],
+  exports: [AiVisagismService, AiConsultationRepository, QuotaService],
 })
 export class AiVisagismModule {}
